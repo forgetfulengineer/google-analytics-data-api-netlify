@@ -1,0 +1,9 @@
+{
+  "name": "ga4-api-on-netlify",
+  "version": "1.0.0",
+  "description": "GA4 API using Netlify Functions",
+  "main": "index.js",
+  "dependencies": {
+    "@google-analytics/data": "^5.1.0"
+  }
+}

@@ -1,0 +1,7 @@
+[functions]
+  directory = "functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["@google-analytics/data"]
+
+[build.environment]
+  NODE_VERSION = "18"
