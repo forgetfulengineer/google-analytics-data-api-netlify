@@ -1,7 +1,7 @@
 {
-  "name": "ga4-api-on-netlify",
+  "name": "google-analytics-data-api-netlify",
   "version": "1.0.0",
-  "description": "GA4 API using Netlify Functions",
+  "description": "This is a simple query API built using the Google Analytics Data API, ideal for static websites.",
   "main": "index.js",
   "dependencies": {
     "@google-analytics/data": "^5.1.0"
