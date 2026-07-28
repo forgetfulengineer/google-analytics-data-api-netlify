@@ -1,0 +1,60 @@
+schema: spec-driven
+
+context: |
+  ## 專案概述
+  google-analytics-data-api-netlify 是一個部署於 Netlify Functions 的無伺服器 REST API，
+  負責從 Google Analytics 4 Data API 取得流量數據，供外部靜態網站（如 Hexo blog）呼叫使用。
+
+  ## 技術棧
+  - Runtime：Node.js ESM（package.json `"type": "module"`）
+  - 部署平台：Netlify Functions，esbuild bundler，functions 目錄為 `functions/`
+  - 路由：Netlify Functions v2 `config.path` 直接定義 `/api/pageviews` 與 `/api/popular-posts`
+  - 外部 API：Google Analytics Data API v1（`@google-analytics/data` v5），使用 Service Account JSON 認證
+  - 儲存層：Netlify Blobs（`@netlify/blobs` v10），store 名稱為 `analytics-storage`，
+    作為 GA4 API 呼叫失敗時的 fallback 備援快取（不作為主要資料庫）
+  - CDN 快取：`Netlify-CDN-Cache-Control`（durable, s-maxage=21600, stale-while-revalidate=21600）
+    pageviews 搭配 `Netlify-Vary: query=path`；popular-posts 不設定 `Netlify-Vary`；
+    瀏覽器端設為 `max-age=0, must-revalidate`
+  - 禁止使用：Cache API（`caches` global / `@netlify/cache`）、function 內部 subrequest（會造成 rewrite loop）
+
+  ## 目錄結構
+  - `functions/`：各 Netlify Function 進入點，一檔一 endpoint
+    - `pageviews.ts`：回傳全站或單頁 pageviews/activeUsers，查詢參數 `?path=`
+    - `popular-posts.ts`：回傳熱門文章排行，不接受查詢參數；使用 `PAGEPATH_REGEX` 過濾
+  - `utils/`：共用工具層
+    - `apiWrapper.ts`：統一處理 enableFlag、CORS、method guard、response 包裝與 extra headers 注入
+    - `response.ts`：jsonResponse/successResponse/errorResponse 工廠函式
+    - `cors.ts`：checkOrigin 驗證允許來源
+  - `src/infrastructure/analyticsClient.ts`：GA4 BetaAnalyticsDataClient singleton，從 env JSON 初始化
+  - `src/schemas/envSchema.ts`：以 Zod fail-fast 驗證環境變數
+
+  ## 環境變數慣例
+  - `ENABLE_<FEATURE>`：功能開關（預設 true），設為 false 時 endpoint 回傳 404
+  - `PROPERTYID`：GA4 Property ID
+  - `GOOGLE_APPLICATION_CREDENTIALS_JSON`：Service Account JSON 字串
+  - `STARTDATE` / `ENDDATE`：全時段查詢的日期範圍（allTime 報表用）
+  - `PAGEPATH_REGEX`：pagePath 過濾正規表達式（預設 `^/`）
+  - `ALLOWED_ORIGINS`：逗號分隔的允許來源清單；未設定則允許所有來源（回傳 `*`）
+
+  ## 補充說明
+  - Blobs 僅在 GA4 呼叫成功時寫入（作為 warm cache），失敗時讀取作為 fallback
+  - 使用 Airbnb-style，single quotes，trailing comma
+
+rules:
+  proposal:
+    - 必須在 Impact 區塊列出所有受影響的 Netlify Function 檔案（functions/*.ts）和 utils 模組
+    - 若涉及新 endpoint，必須在 Capabilities 中定義 URL path、query 參數與 response schema 摘要
+    - 若涉及 CDN 快取策略變更，必須說明 Netlify-CDN-Cache-Control 和 Netlify-Vary 的預期值
+    - 禁止在 proposal 中提及使用 Cache API 或 function 內部 subrequest
+
+  design:
+    - 必須說明 Netlify Blobs 的讀寫時機（何時寫入、何時作為 fallback）
+    - 必須定義 Blobs cache key 格式
+    - 若有新 endpoint 必須列出完整 response JSON schema（含欄位名稱與型別）
+    - 若有 CDN 快取策略，必須列出 Cache-Control、Netlify-CDN-Cache-Control、Netlify-Vary 的具體值
+    - 必須說明 CORS 策略（allowedOrigins 行為）
+
+  tasks:
+    - 每個 task 工作量不超過 2 小時
+    - 每個 task 必須標明目標檔案路徑（相對於專案根目錄）
+    - 每個 task 必須包含可驗證的完成條件（例如：curl 指令預期輸出、Blobs 寫入確認、HTTP 狀態碼）
