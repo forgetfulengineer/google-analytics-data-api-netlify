@@ -14,6 +14,7 @@ openspec/.vector-search.db*
 GEMINI.md
 AGENTS.md
 RTK.md
+skills-lock.json
 
 # Development Scratch & Temp
 scratch/
