@@ -1,7 +1,7 @@
 import type { Config } from '@netlify/functions';
 import { ValidationError } from '../src/errors/AppError.js';
+import { env } from '../src/lib/env.js';
 import { fetchPageviews } from '../src/repositories/analyticsRepository.js';
-import { env } from '../src/schemas/envSchema.js';
 import { PageviewsQuerySchema } from '../src/schemas/pageviews.schema.js';
 import { makeGetPageviews } from '../src/use-cases/getPageviews.js';
 import { apiWrapper } from '../utils/apiWrapper.js';
