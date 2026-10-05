@@ -1,3 +1,4 @@
+import { env } from '../src/lib/env.js';
 import { checkOrigin } from './cors.js';
 import { errorResponse, successResponse } from './response.js';
 
@@ -12,7 +13,7 @@ export async function apiWrapper(
   context: unknown,
   { enableFlag, handlerFn, extraHeaders = {} }: ApiWrapperOptions,
 ): Promise<Response> {
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || null;
+  const allowedOrigins = env.ALLOWED_ORIGINS?.split(',') ?? null;
   const origin = req.headers.get('origin') || '';
   const isOriginAllowed = checkOrigin(origin, allowedOrigins);
   const corsOrigin = allowedOrigins ? (isOriginAllowed ? origin : '') : '*';
@@ -48,7 +49,8 @@ export async function apiWrapper(
     );
   }
 
-  const enable = (process.env[enableFlag] || 'true').toLowerCase() === 'true';
+  const enable =
+    (Netlify.env.get(enableFlag) ?? 'true').toLowerCase() === 'true';
   if (!enable) {
     return errorResponse(404, 'NOT_FOUND', 'Not Found.', null, corsOrigin);
   }

@@ -1,6 +1,6 @@
 import type { Config } from '@netlify/functions';
+import { env } from '../src/lib/env.js';
 import { fetchPopularPosts } from '../src/repositories/analyticsRepository.js';
-import { env } from '../src/schemas/envSchema.js';
 import { makeGetPopularPosts } from '../src/use-cases/getPopularPosts.js';
 import { apiWrapper } from '../utils/apiWrapper.js';
 

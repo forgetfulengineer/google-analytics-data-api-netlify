@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ValidationError } from '../src/errors/AppError.js';
+
+vi.mock('../src/lib/env.js', () => ({
+  get env() {
+    return {
+      ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+    };
+  },
+}));
+
 import { apiWrapper } from './apiWrapper.js';
 
 describe('apiWrapper', () => {

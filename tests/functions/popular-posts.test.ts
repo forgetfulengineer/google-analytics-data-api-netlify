@@ -17,7 +17,7 @@ const { mockEnv, mockGetPopularPosts } = vi.hoisted(() => ({
   mockGetPopularPosts: vi.fn(),
 }));
 
-vi.mock('../../src/schemas/envSchema.js', () => ({
+vi.mock('../../src/lib/env.js', () => ({
   env: mockEnv,
 }));
 

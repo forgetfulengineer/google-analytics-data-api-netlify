@@ -7,40 +7,46 @@ TBD - created by archiving change 'refactor-env-check'. Update Purpose after arc
 ## Requirements
 
 ### Requirement: Environment Configuration Schema
-The system SHALL validate all process environment variables using a Zod schema before they are accessed by application logic.
-The schema SHALL enforce that `PROPERTYID`, `GOOGLE_APPLICATION_CREDENTIALS_JSON`, `STARTDATE`, and `ENDDATE` are required string values.
+The system SHALL retrieve environment variables using Netlify platform API (`Netlify.env.get()`) and validate them using a Zod schema before they are accessed by application logic.
+The schema SHALL enforce that `PROPERTYID`, `GOOGLE_APPLICATION_CREDENTIALS_JSON`, `STARTDATE`, and `ENDDATE` are required non-empty string values.
 The schema SHALL allow optional `PAGEPATH_REGEX` and `ALLOWED_ORIGINS` string values.
 
 #### Scenario: Valid environment variables
-- **WHEN** all required environment variables are present and valid
+- **WHEN** all required environment variables are present and valid via `Netlify.env.get()`
 - **THEN** the schema validation SHALL succeed and return a strongly typed configuration object
 
-##### Example: Correct startup environment
-- **GIVEN** `PROPERTYID` is "123456" and `STARTDATE` is "2024-01-01"
-- **WHEN** the application loads the schema
+##### Example: Correct Netlify environment retrieval
+- **GIVEN** `Netlify.env.get('PROPERTYID')` returns "123456" and `Netlify.env.get('STARTDATE')` returns "2024-01-01"
+- **WHEN** `src/lib/env.ts` evaluates the configuration
 - **THEN** the validation succeeds and returns an object with `{ PROPERTYID: "123456", STARTDATE: "2024-01-01" }`, plus optional values when provided
 
 #### Scenario: Missing required environment variables
-- **WHEN** any required environment variable is missing or empty
+- **WHEN** any required environment variable is missing or returns empty string from `Netlify.env.get()`
 - **THEN** the schema validation SHALL throw a ZodError
 
 ##### Example: Missing PROPERTYID
-- **GIVEN** `PROPERTYID` is not set in the environment
-- **WHEN** the application loads the schema
-- **THEN** it throws a ZodError with path `PROPERTYID` and a "Required" message
+- **GIVEN** `Netlify.env.get('PROPERTYID')` returns undefined or empty string
+- **WHEN** `src/lib/env.ts` validates the environment variables
+- **THEN** it throws a ZodError with path `PROPERTYID` and a required error message
 
 <!-- @trace
-source: refactor-env-check
-updated: 2026-06-03
+source: refactor-env-access
+updated: 2026-10-05
 code:
-  - RTK.md
-  - AGENTS.md
-  - functions/pageviews.ts
-  - utils/apiWrapper.ts
-  - .agents/rules/windows-terminal-execution-rules.md
-  - src/schemas/envSchema.ts
-  - .agents/rules/antigravity-rtk-rules.md
+  - .agents
   - functions/popular-posts.ts
+  - utils/apiWrapper.ts
+  - functions/pageviews.ts
+  - src/infrastructure/analyticsClient.ts
+  - vitest.config.ts
+  - .agent
+  - src/lib/env.ts
+  - src/schemas/envSchema.ts
+  - tests/setup.ts
 tests:
   - utils/apiWrapper.test.ts
+  - tests/functions/popular-posts.test.ts
+  - tests/functions/pageviews.test.ts
+  - tests/functions/function-config.test.ts
+  - src/lib/env.test.ts
 -->

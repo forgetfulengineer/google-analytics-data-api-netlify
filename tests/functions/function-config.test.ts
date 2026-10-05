@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../src/schemas/envSchema.js', () => ({
+vi.mock('../../src/lib/env.js', () => ({
   env: {
     PROPERTYID: '123456',
     GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({ project_id: 'test' }),

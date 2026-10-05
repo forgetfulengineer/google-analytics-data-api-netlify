@@ -1,19 +1,13 @@
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
+import { env } from '../lib/env.js';
 
 let _client: BetaAnalyticsDataClient | undefined;
 
 export function getAnalyticsClient(): BetaAnalyticsDataClient {
   if (_client) return _client;
 
-  const credJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
-  if (!credJson) {
-    throw new Error(
-      'Missing environment variable: GOOGLE_APPLICATION_CREDENTIALS_JSON',
-    );
-  }
-
   try {
-    const creds = JSON.parse(credJson);
+    const creds = JSON.parse(env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
     _client = new BetaAnalyticsDataClient({ credentials: creds });
     return _client;
   } catch (err: unknown) {
