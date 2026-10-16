@@ -1,32 +1,106 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
+  quality-checks:
+    name: Quality Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        id: checkout
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        id: setup-node
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: 'npm'
+          cache: npm
 
       - name: Install dependencies
+        id: install
         run: npm ci
 
       - name: Run Biome CI
+        id: biome
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
         run: npx @biomejs/biome ci .
 
       - name: Type Check
+        id: typecheck
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
         run: npx tsc --noEmit
 
       - name: Run Tests
-        run: npm run test
+        id: tests
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm test
+
+      - name: Generate Quality Summary
+        if: always()
+        env:
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          SETUP_OUTCOME: ${{ steps.setup-node.outcome }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          BIOME_OUTCOME: ${{ steps.biome.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          {
+            echo "## Code Quality Report"
+            echo
+            echo "| Check | Result |"
+            echo "|---|---|"
+            echo "| Checkout | ${CHECKOUT_OUTCOME:-skipped} |"
+            echo "| Setup Node.js | ${SETUP_OUTCOME:-skipped} |"
+            echo "| Install dependencies | ${INSTALL_OUTCOME:-skipped} |"
+            echo "| Biome CI | ${BIOME_OUTCOME:-skipped} |"
+            echo "| TypeScript | ${TYPECHECK_OUTCOME:-skipped} |"
+            echo "| Tests | ${TESTS_OUTCOME:-skipped} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify Quality Results
+        if: always()
+        env:
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          SETUP_OUTCOME: ${{ steps.setup-node.outcome }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          BIOME_OUTCOME: ${{ steps.biome.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          failed=0
+          for check in CHECKOUT_OUTCOME SETUP_OUTCOME INSTALL_OUTCOME BIOME_OUTCOME TYPECHECK_OUTCOME TESTS_OUTCOME; do
+            result="${!check}"
+            if [ "$result" != "success" ]; then
+              echo "::error::$check did not succeed (result: ${result:-missing})"
+              failed=1
+            fi
+          done
+
+          if [ "$failed" -ne 0 ]; then
+            echo "Quality checks failed."
+            exit 1
+          fi
+
+          echo "All quality checks passed."
