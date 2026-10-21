@@ -1,0 +1,40 @@
+
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# 這裡設定的是 GITHUB_TOKEN 的權限，不會取代下方 GitHub App Token 的權限設定。
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please-main
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+          # 不指定 owner / repositories 時，Token 預設限定於目前 Repository。
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - name: Run Release Please
+        uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          release-type: node
+          target-branch: main
