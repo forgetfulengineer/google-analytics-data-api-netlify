@@ -1,8 +1,8 @@
 import type { Config } from '@netlify/functions';
 import { ValidationError } from '../src/errors/AppError.js';
-import { env } from '../src/lib/env.js';
+import { getEnv } from '../src/lib/env.js';
 import { fetchPageviews } from '../src/repositories/analyticsRepository.js';
-import { createPageviewsQuerySchema } from '../src/schemas/pageviews.schema.js';
+import { PageviewsQuerySchema } from '../src/schemas/pageviews.schema.js';
 import { makeGetPageviews } from '../src/use-cases/getPageviews.js';
 import { apiWrapper } from '../utils/apiWrapper.js';
 
@@ -18,6 +18,7 @@ export default async (req: Request, context: any) => {
     enableFlag: 'ENABLE_PAGEVIEW',
     extraHeaders: CACHE_HEADERS,
     handlerFn: async (req: Request) => {
+      const env = getEnv();
       const propertyId = env.PROPERTYID;
       const startDate = env.STARTDATE;
       const endDate = env.ENDDATE;
@@ -29,7 +30,7 @@ export default async (req: Request, context: any) => {
         queryParams.path = pathParam;
       }
 
-      const parsed = createPageviewsQuerySchema(env.PAGEPATH_REGEX).safeParse(queryParams);
+      const parsed = PageviewsQuerySchema.safeParse(queryParams);
       if (!parsed.success) {
         const errors = parsed.error.issues.map((err) => ({
           field: String(err.path[0] || 'query'),
