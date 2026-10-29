@@ -1,5 +1,5 @@
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
-import { env } from '../lib/env.js';
+import { getEnv } from '../lib/env.js';
 
 let _client: BetaAnalyticsDataClient | undefined;
 
@@ -7,6 +7,7 @@ export function getAnalyticsClient(): BetaAnalyticsDataClient {
   if (_client) return _client;
 
   try {
+    const env = getEnv();
     const creds = JSON.parse(env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
     _client = new BetaAnalyticsDataClient({ credentials: creds });
     return _client;

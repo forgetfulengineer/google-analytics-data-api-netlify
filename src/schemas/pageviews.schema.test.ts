@@ -1,4 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../lib/env.js', () => ({
+  getEnv: () => ({
+    PROPERTYID: 'test',
+    GOOGLE_APPLICATION_CREDENTIALS_JSON: '{}',
+    STARTDATE: '2026-01-01',
+    ENDDATE: '2026-01-31',
+    PAGEPATH_REGEX: undefined,
+    ALLOWED_ORIGINS: undefined,
+  }),
+}));
+
 import { PageviewsQuerySchema } from './pageviews.schema.js';
 
 describe('PageviewsQuerySchema', () => {

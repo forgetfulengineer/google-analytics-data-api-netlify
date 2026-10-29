@@ -46,17 +46,20 @@ code:
 
 ---
 ### Requirement: Schema 驗證層
-The system SHALL use Zod to define and enforce validation schemas for environment variables and request parameters. A ZodError thrown by the environment schema SHALL cause the module to fail fast during initialization, preventing execution and logging the exact missing fields to the server logs.
+The system SHALL use Zod to define and enforce validation schemas for environment variables and request parameters.
+Environment variable validation errors during request handling SHALL be caught by the API wrapper, logging the exact missing or invalid field names to the server logs while returning a standard JSON error response to the client.
 
 #### Scenario: 啟動時的環境變數驗證
-- **WHEN** the module loads and required environment variables are missing
-- **THEN** the schema validation SHALL fail immediately at the top level
-- **AND** the API wrapper SHALL NOT catch this error, allowing the platform to return a generic 500 Internal Server Error without leaking config details
+- **WHEN** an API endpoint is invoked and required environment variables are missing or invalid
+- **THEN** the API wrapper SHALL catch the validation error
+- **AND** the system SHALL log the exact missing or invalid environment variable names to the server error log
+- **AND** the API wrapper SHALL return a standard 500 Internal Server Error JSON response with code `INTERNAL_SERVER_ERROR`
+- **AND** the response SHALL NOT contain HTML, sensitive configuration details, or stack traces
 
 ##### Example: 環境變數缺失錯誤
 - **GIVEN** `PROPERTYID` environment variable is not set
 - **WHEN** the API endpoint is invoked
-- **THEN** the system SHALL return a generic 500 response, and log the ZodError details to the server console
+- **THEN** the system SHALL return HTTP 500 with `{ "code": "INTERNAL_SERVER_ERROR", "message": "Internal Server Error", "data": null }` and `Content-Type: application/json`
 
 #### Scenario: 請求參數驗證
 - **WHEN** the handler receives a request
@@ -69,19 +72,24 @@ The system SHALL use Zod to define and enforce validation schemas for environmen
 
 
 <!-- @trace
-source: refactor-env-check
-updated: 2026-06-03
+source: fix-netlify-functions-html-error
+updated: 2026-10-29
 code:
-  - RTK.md
-  - AGENTS.md
-  - functions/pageviews.ts
-  - utils/apiWrapper.ts
-  - .agents/rules/windows-terminal-execution-rules.md
-  - src/schemas/envSchema.ts
-  - .agents/rules/antigravity-rtk-rules.md
   - functions/popular-posts.ts
+  - .agent
+  - src/infrastructure/analyticsClient.ts
+  - functions/pageviews.ts
+  - src/schemas/pageviews.schema.ts
+  - utils/apiWrapper.ts
+  - src/lib/env.ts
+  - .agents
 tests:
+  - tests/functions/popular-posts.test.ts
+  - src/lib/env.test.ts
   - utils/apiWrapper.test.ts
+  - tests/functions/function-config.test.ts
+  - src/schemas/pageviews.schema.test.ts
+  - tests/functions/pageviews.test.ts
 -->
 
 ---

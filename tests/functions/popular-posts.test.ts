@@ -18,7 +18,7 @@ const { mockEnv, mockGetPopularPosts } = vi.hoisted(() => ({
 }));
 
 vi.mock('../../src/lib/env.js', () => ({
-  env: mockEnv,
+  getEnv: () => mockEnv,
 }));
 
 vi.mock('../../src/use-cases/getPopularPosts.js', () => ({
