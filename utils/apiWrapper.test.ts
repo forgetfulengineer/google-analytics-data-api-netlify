@@ -1,12 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ZodError } from 'zod';
 import { ValidationError } from '../src/errors/AppError.js';
+import type { Env } from '../src/schemas/envSchema.js';
+
+const defaultMockEnv: Env = {
+  PROPERTYID: '123456',
+  GOOGLE_APPLICATION_CREDENTIALS_JSON: '{}',
+  STARTDATE: '2026-01-01',
+  ENDDATE: '2026-01-31',
+  PAGEPATH_REGEX: undefined,
+  ALLOWED_ORIGINS: undefined,
+};
+
+const mockGetEnv = vi.fn(() => ({ ...defaultMockEnv }));
 
 vi.mock('../src/lib/env.js', () => ({
-  get env() {
-    return {
-      ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
-    };
-  },
+  getEnv: () => mockGetEnv(),
 }));
 
 import { apiWrapper } from './apiWrapper.js';
@@ -14,10 +23,15 @@ import { apiWrapper } from './apiWrapper.js';
 describe('apiWrapper', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    mockGetEnv.mockReset();
+    mockGetEnv.mockImplementation(() => ({ ...defaultMockEnv }));
   });
 
   it('returns cached CORS preflight response without executing handler logic', async () => {
-    vi.stubEnv('ALLOWED_ORIGINS', 'https://example.com');
+    mockGetEnv.mockReturnValueOnce({
+      ...defaultMockEnv,
+      ALLOWED_ORIGINS: 'https://example.com',
+    });
     const handlerFn = vi.fn();
     const req = new Request('https://api.example.com/api/pageviews', {
       method: 'OPTIONS',
@@ -71,7 +85,10 @@ describe('apiWrapper', () => {
   });
 
   it('returns a unified 403 error for disallowed CORS origins without executing handler logic', async () => {
-    vi.stubEnv('ALLOWED_ORIGINS', 'https://example.com');
+    mockGetEnv.mockReturnValueOnce({
+      ...defaultMockEnv,
+      ALLOWED_ORIGINS: 'https://example.com',
+    });
     const handlerFn = vi.fn();
     const req = new Request('https://api.example.com/api/pageviews', {
       headers: {
@@ -253,5 +270,48 @@ describe('apiWrapper', () => {
     expect(res.headers.get('Netlify-CDN-Cache-Control')).toBe(
       'public, durable, s-maxage=21600',
     );
+  });
+
+  it('handles missing required environment variables by logging specific fields and returning 500 JSON without leaking details', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const zodError = new ZodError([
+      {
+        code: 'custom',
+        path: ['PROPERTYID'],
+        message: 'PROPERTYID is required',
+      },
+      {
+        code: 'custom',
+        path: ['GOOGLE_APPLICATION_CREDENTIALS_JSON'],
+        message: 'GOOGLE_APPLICATION_CREDENTIALS_JSON is required',
+      },
+    ]);
+    mockGetEnv.mockImplementationOnce(() => {
+      throw zodError;
+    });
+
+    const req = new Request('https://api.example.com/api/pageviews');
+    const res = await apiWrapper(
+      req,
+      {},
+      {
+        enableFlag: 'ENABLE_PAGEVIEW',
+        handlerFn: vi.fn(),
+      },
+    );
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body).toEqual({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Internal Server Error',
+      data: null,
+    });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '[Config Error] Missing or invalid environment variable(s): PROPERTYID, GOOGLE_APPLICATION_CREDENTIALS_JSON',
+      ),
+    );
+    consoleSpy.mockRestore();
   });
 });
