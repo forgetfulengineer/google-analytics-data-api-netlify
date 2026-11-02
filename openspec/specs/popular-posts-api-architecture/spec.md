@@ -1,8 +1,7 @@
 # popular-posts-api-architecture Specification
 
 ## Purpose
-
-TBD - created by archiving change 'refactor-popular-posts-api'. Update Purpose after archive.
+規範 `/api/popular-posts` 端點的三層分離架構（Handler、Use Case、Repository），定義雙時間範圍（近 30 天與全時段）熱門文章排行榜資料格式、正則文章路徑過濾機制、Netlify Blobs 快取備援，以及 CDN 快取標頭策略（無使用 Netlify-Vary）。
 
 ## Requirements
 
@@ -11,7 +10,7 @@ TBD - created by archiving change 'refactor-popular-posts-api'. Update Purpose a
 - **Handler**: `functions/popular-posts.ts` 必須負責接收 HTTP 請求並將請求委派。
 - **Use Case**: `src/use-cases/getPopularPosts.ts` 必須處理業務邏輯與 Netlify Blobs 的快取機制。
 - **Repository**: `src/repositories/analyticsRepository.ts` 必須負責呼叫 GA4 API 並取得資料。
-(由於不接受任何 URL 查詢參數，故無需 Schema 驗證層；pagePath 篩選由 `PAGEPATH_REGEX` 環境變數提供，未設定時預設為 `^/`)
+(由於不接受任何 URL 查詢參數，故無需 Schema 驗證層；pagePath 篩選由 `PAGEPATH_REGEX` 環境變數提供，未設定時預設為 `^/`；Repository 分別以近 30 天與全時段日期範圍查詢並各取 top 10 文章)
 
 #### Scenario: 成功的 API 執行流程
 - **WHEN** 客戶端呼叫 `/api/popular-posts` 端點時
@@ -33,7 +32,7 @@ code:
 tests:
   - src/repositories/analyticsRepository.test.ts
   - src/use-cases/getPopularPosts.test.ts
-  - functions/popular-posts.test.ts
+  - tests/functions/popular-posts.test.ts
 -->
 
 ---
@@ -42,7 +41,7 @@ API 端點必須回傳標準的 JSON 結構，並包裝在專案統一的成功�
 
 #### Scenario: 請求熱門文章資料
 - **WHEN** 處理對 API 的請求時
-- **THEN** 回應的 `data` 物件必須同時包含 `month` 與 `allTime` 兩個陣列，且忽略任何 URL 查詢參數。
+- **THEN** 回應的 `data` 物件必須同時包含 `month` 與 `allTime` 兩個陣列，且忽略任何查詢參數。
 
 ##### Example: 雙重時間範圍回應
 - **GIVEN** GA4 資料中，本月 "/a" 頁面有 100 PV，所有時間 "/a" 頁面有 500 PV
@@ -66,7 +65,7 @@ code:
 tests:
   - src/repositories/analyticsRepository.test.ts
   - src/use-cases/getPopularPosts.test.ts
-  - functions/popular-posts.test.ts
+  - tests/functions/popular-posts.test.ts
 -->
 
 ---
@@ -91,5 +90,28 @@ code:
 tests:
   - src/repositories/analyticsRepository.test.ts
   - src/use-cases/getPopularPosts.test.ts
-  - functions/popular-posts.test.ts
+  - tests/functions/popular-posts.test.ts
 -->
+
+---
+### Requirement: Popular Posts Cache Headers
+The `/api/popular-posts` endpoint SHALL return Netlify Durable CDN Cache headers caching responses for 6 hours (`s-maxage=21600, stale-while-revalidate=21600`).
+Because the endpoint does not accept URL query parameters, it MUST NOT include the `Netlify-Vary` header.
+The client-side `Cache-Control` header SHALL be set to `public, max-age=0, must-revalidate` to ensure browser revalidation while utilizing edge CDN caching.
+
+#### Scenario: Inspecting cache headers on popular-posts response
+- **WHEN** a client receives a response from `/api/popular-posts`
+- **THEN** `Cache-Control` is `public, max-age=0, must-revalidate`
+- **AND** `Netlify-CDN-Cache-Control` is `public, durable, s-maxage=21600, stale-while-revalidate=21600`
+- **AND** `Netlify-Vary` is omitted
+
+<!-- @trace
+source: optimize-api-response-patterns
+updated: 2026-05-21
+code:
+  - functions/popular-posts.ts
+  - utils/apiWrapper.ts
+tests:
+  - tests/functions/popular-posts.test.ts
+-->
+

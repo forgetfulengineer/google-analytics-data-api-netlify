@@ -2,59 +2,90 @@ schema: spec-driven
 
 context: |
   ## 專案概述
-  google-analytics-data-api-netlify 是一個部署於 Netlify Functions 的無伺服器 REST API，
-  負責從 Google Analytics 4 Data API 取得流量數據，供外部靜態網站（如 Hexo blog）呼叫使用。
+  google-analytics-data-api-netlify 是一個部署於 Netlify Functions (v2) 的無伺服器 REST API，負責從 Google Analytics 4 (GA4) Data API 取得數據，專為外部靜態網站（如 Hexo 部落格）設計。
 
-  ## 技術棧
-  - Runtime：Node.js ESM（package.json `"type": "module"`）
-  - 部署平台：Netlify Functions，esbuild bundler，functions 目錄為 `functions/`
-  - 路由：Netlify Functions v2 `config.path` 直接定義 `/api/pageviews` 與 `/api/popular-posts`
+  ## 技術棧與工具鏈
+  - Runtime：Node.js ESM（package.json `"type": "module"`，Node 24+）
+  - 部署平台：Netlify Functions (v2)，esbuild bundler，進入點目錄為 `functions/`
+  - 路由與邊緣限制：Netlify Functions v2 `config` 定義路徑、允許方法（`GET`, `OPTIONS`）與速率限制（`rateLimit`：100 req / 60s，依 IP 與 domain 彙總）
   - 外部 API：Google Analytics Data API v1（`@google-analytics/data` v5），使用 Service Account JSON 認證
-  - 儲存層：Netlify Blobs（`@netlify/blobs` v10），store 名稱為 `analytics-storage`，
-    作為 GA4 API 呼叫失敗時的 fallback 備援快取（不作為主要資料庫）
+  - 儲存層：Netlify Blobs（`@netlify/blobs` v10），store 名稱為 `analytics-storage`，作為 GA4 API 呼叫失敗時的 fallback 備援快取（不作為主要資料庫）
   - CDN 快取：`Netlify-CDN-Cache-Control`（durable, s-maxage=21600, stale-while-revalidate=21600）
-    pageviews 搭配 `Netlify-Vary: query=path`；popular-posts 不設定 `Netlify-Vary`；
-    瀏覽器端設為 `max-age=0, must-revalidate`
+    - pageviews 搭配 `Netlify-Vary: query=path`
+    - popular-posts 無設定 `Netlify-Vary`
+    - 瀏覽器端設為 `Cache-Control: public, max-age=0, must-revalidate`
+  - 靜態檢查與格式化：Biome（`@biomejs/biome`，2 空格縮排、單引號、trailing comma、分號）
+  - 測試框架：Vitest（單元測試與整合測試）
+  - 型別系統：TypeScript 6，搭配 Zod 4 進行執行時期 Schema 驗證
+  - CI/CD：GitHub Actions（品質檢查 `ci.yml`、安全掃描 `codeql.yml`、自動發版 `release-please.yml`）
   - 禁止使用：Cache API（`caches` global / `@netlify/cache`）、function 內部 subrequest（會造成 rewrite loop）
 
-  ## 目錄結構
-  - `functions/`：各 Netlify Function 進入點，一檔一 endpoint
-    - `pageviews.ts`：回傳全站或單頁 pageviews/activeUsers，查詢參數 `?path=`
-    - `popular-posts.ts`：回傳熱門文章排行，不接受查詢參數；使用 `PAGEPATH_REGEX` 過濾
-  - `utils/`：共用工具層
-    - `apiWrapper.ts`：統一處理 enableFlag、CORS、method guard、response 包裝與 extra headers 注入
-    - `response.ts`：jsonResponse/successResponse/errorResponse 工廠函式
-    - `cors.ts`：checkOrigin 驗證允許來源
-  - `src/infrastructure/analyticsClient.ts`：GA4 BetaAnalyticsDataClient singleton，從 env JSON 初始化
-  - `src/schemas/envSchema.ts`：以 Zod fail-fast 驗證環境變數
+  ## 系統架構分層（Clean Architecture）
+  - `functions/`：Netlify Function 進入點（Handler 層），一檔一 endpoint，負責解析 HTTP 請求、呼叫 Use Case 並導向 `apiWrapper`。
+    - `pageviews.ts`：端點 `/api/pageviews`，支援選填 `path` 參數查詢單頁或全站流量。
+    - `popular-posts.ts`：端點 `/api/popular-posts`，查詢近 30 天與全時段熱門文章。
+  - `src/schemas/`：輸入與環境驗證層（Schema 層），使用 Zod 定義強型別驗證規則。
+    - `envSchema.ts`：環境變數 Zod Schema。
+    - `pageviews.schema.ts`：`path` 查詢參數驗證，整合 `PAGEPATH_REGEX` 正規表達式檢驗。
+  - `src/use-cases/`：業務邏輯與快取編排層（Use Case 層），使用 factory pattern 注入 repository，負責 GA4 呼叫與 Netlify Blobs 讀寫/fallback。
+    - `getPageviews.ts`：pageviews 業務邏輯與 `analytics-storage` Blobs 快取。
+    - `getPopularPosts.ts`：popular-posts 業務邏輯與 `analytics-storage` Blobs 快取。
+  - `src/repositories/`：資料存取層（Repository 層），封裝 GA4 `batchRunReports` 呼叫與動態報表解析。
+    - `analyticsRepository.ts`：`fetchPageviews`、`fetchPopularPosts` 與動態欄位映射函式 `parseGA4Report`。
+  - `src/infrastructure/`：基礎設施層。
+    - `analyticsClient.ts`：GA4 `BetaAnalyticsDataClient` 模組級單例客戶端。
+  - `src/lib/`：通用函式庫層。
+    - `env.ts`：透過 `Netlify.env.get` 延遲解析環境變數（`getEnv()`），支援測試環境重置（`resetEnv()`）。
+  - `src/errors/`：型別化錯誤定義。
+    - `AppError.ts`：包含 `AppError` (500), `ValidationError` (400), `NotFoundError` (404), `UpstreamError` (503)。
+  - `utils/`：共用 HTTP 工具層。
+    - `apiWrapper.ts`：集中處理 CORS、OPTIONS preflight、HTTP method 限制、功能開關（enableFlag）、統一成功/錯誤封裝與全生命週期防護。
+    - `response.ts`：標準 JSON 回應建構工廠（`successResponse`、`errorResponse`、`jsonResponse`）。
+    - `cors.ts`：精確 Origin 白名單驗證與 localhost 開發支援（`checkOrigin`）。
+  - `tests/`：測試目錄（分離於 `functions/` 外，避免被部署為 serverless 進入點）。
+    - `setup.ts`：Vitest 測試環境初始化（注入 `Netlify.env` mock）。
+    - `functions/`：端點整合測試（`pageviews.test.ts`, `popular-posts.test.ts`, `function-config.test.ts`）。
 
-  ## 環境變數慣例
-  - `ENABLE_<FEATURE>`：功能開關（預設 true），設為 false 時 endpoint 回傳 404
-  - `PROPERTYID`：GA4 Property ID
-  - `GOOGLE_APPLICATION_CREDENTIALS_JSON`：Service Account JSON 字串
-  - `STARTDATE` / `ENDDATE`：全時段查詢的日期範圍（allTime 報表用）
-  - `PAGEPATH_REGEX`：pagePath 過濾正規表達式（預設 `^/`）
-  - `ALLOWED_ORIGINS`：逗號分隔的允許來源清單；未設定則允許所有來源（回傳 `*`）
+  ## 環境變數矩陣
+  - 必填變數：
+    - `PROPERTYID`：Google Analytics 4 Property ID（純數字字串）。
+    - `GOOGLE_APPLICATION_CREDENTIALS_JSON`：Google Cloud Service Account 金鑰完整 JSON 字串。
+    - `STARTDATE`：全站統計開始日期（例如 `NdaysAgo`、`YYYY-MM-DD`）。
+    - `ENDDATE`：全站統計結束日期（例如 `today`、`YYYY-MM-DD`）。
+  - 選填變數：
+    - `ALLOWED_ORIGINS`：逗號分隔的允許 CORS 來源清單；未設定則允許所有來源（回傳 `*`）。
+    - `PAGEPATH_REGEX`：過濾文章路徑之正規表達式（預設 `^/`），同時用於熱門文章篩選與 pageviews 查詢參數之驗證。
+    - `ENABLE_PAGEVIEW`：是否啟用 `/api/pageviews`（預設 `'true'`，設為 `'false'` 回傳 404）。
+    - `ENABLE_POPULAR`：是否啟用 `/api/popular-posts`（預設 `'true'`，設為 `'false'` 回傳 404）。
 
-  ## 補充說明
-  - Blobs 僅在 GA4 呼叫成功時寫入（作為 warm cache），失敗時讀取作為 fallback
-  - 使用 Airbnb-style，single quotes，trailing comma
+  ## 快取與備援機制
+  - Netlify CDN：Durable CDN Cache（6 小時，`s-maxage=21600, stale-while-revalidate=21600`）。
+  - Netlify Blobs：在 GA4 呼叫成功時寫入 `analytics-storage` 作為暖快取；當 GA4 API 呼叫失敗時自動讀取作為 fallback 備援，若無備援則拋出 `UpstreamError` (503)。
+
 
 rules:
   proposal:
-    - 必須在 Impact 區塊列出所有受影響的 Netlify Function 檔案（functions/*.ts）和 utils 模組
-    - 若涉及新 endpoint，必須在 Capabilities 中定義 URL path、query 參數與 response schema 摘要
-    - 若涉及 CDN 快取策略變更，必須說明 Netlify-CDN-Cache-Control 和 Netlify-Vary 的預期值
-    - 禁止在 proposal 中提及使用 Cache API 或 function 內部 subrequest
+    - 必須在 Impact 區塊列出所有受影響的檔案路徑（分類標明 functions/、src/、utils/、tests/ 等）
+    - 若涉及新 endpoint 或既有端點變更，必須在 Capabilities 中定義 URL path、HTTP methods、query 參數與 response envelope 摘要
+    - 若涉及 CDN 快取策略變更，必須清楚說明 Netlify-CDN-Cache-Control 與 Netlify-Vary 的設定值（無 query 參數之端點禁止設定 Netlify-Vary）
+    - 禁止在 proposal 中提及使用 Cache API（caches.open/match）或 function 內部 subrequest（防止 rewrite loop）
 
   design:
-    - 必須說明 Netlify Blobs 的讀寫時機（何時寫入、何時作為 fallback）
-    - 必須定義 Blobs cache key 格式
-    - 若有新 endpoint 必須列出完整 response JSON schema（含欄位名稱與型別）
+    - 必須遵循 Clean Architecture 分層職責：Handler 僅做轉發與參數解析、Schema 負責 Zod 驗證、Use Case 負責業務編排與快取、Repository 負責 GA4 存取與報表解析
+    - 必須遵循 Netlify Blobs 的讀寫時機（成功時寫入暖快取、GA4 失敗時作為 fallback 備援）與 cache key 格式
+    - 必須遵循延遲環境變數存取機制（透過 src/lib/env.ts 的 getEnv() 讀取），禁止在模組頂層立即解析或直接存取 process.env
+    - 必須遵循錯誤處理與 HTTP 狀態碼對應（遵循 AppError 體系：400、404、503、500），確保全生命週期皆回傳統一 JSON 且杜絕 HTML 錯誤頁
+    - 若有新 endpoint 或資料結構異動，必須列出完整的成功與錯誤 response JSON schema（含欄位名稱、型別與 meta 說明）
     - 若有 CDN 快取策略，必須列出 Cache-Control、Netlify-CDN-Cache-Control、Netlify-Vary 的具體值
-    - 必須說明 CORS 策略（allowedOrigins 行為）
+    - 必須遵循 CORS 策略（包含 ALLOWED_ORIGINS 白名單比對、本機開發 http://localhost:* 放行與 OPTIONS 204 preflight 快取）
+
+  specs:
+    - 必須採用 BDD 規範（Requirement -> Scenario -> Example），並以 GIVEN / WHEN / THEN / AND 格式撰寫明確可驗證的行為
+    - 必須精確描述邊界條件與失敗情境（如：驗證失敗、環境變數缺失、CORS 阻擋、GA4 逾時 fallback 成功與無快取時拋出 UpstreamError）
 
   tasks:
-    - 每個 task 工作量不超過 2 小時
-    - 每個 task 必須標明目標檔案路徑（相對於專案根目錄）
-    - 每個 task 必須包含可驗證的完成條件（例如：curl 指令預期輸出、Blobs 寫入確認、HTTP 狀態碼）
+    - 每個 task 工作量建議不超過 2 小時，粒度清晰且聚焦於單一模組或分層
+    - 每個 task 必須標明具體目標檔案路徑（相對於專案根目錄）
+    - 涉及功能變更的 task 必須包含對應的單元或整合測試，測試檔案嚴禁置於 functions/ 目錄內
+    - Repository 測試必須全面 mock GA4 client（getAnalyticsClient），禁止在測試中進行真實網路呼叫或消耗 GA4 配額
+    - 每個 task 須包含明確、可執行的驗證條件（例如：npm test 通過、npm run ci 靜態檢查通過、npx tsc --noEmit 型別正確、HTTP 狀態碼與 JSON 信封驗證）
