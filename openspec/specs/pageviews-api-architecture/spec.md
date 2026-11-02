@@ -1,8 +1,7 @@
 # pageviews-api-architecture Specification
 
 ## Purpose
-
-TBD - created by archiving change 'refactor-pageviews-api'. Update Purpose after archive.
+規範 `/api/pageviews` 端點的 Clean Architecture 四層分離架構（Handler、Schema、Use Case、Repository），定義查詢參數驗證（支援 `PAGEPATH_REGEX` 正則檢驗）、全站與單頁結構化回應格式、Netlify Blobs 快取備援機制，以及邊緣 CDN 快取標頭策略（含 `Netlify-Vary: query=path`）。
 
 ## Requirements
 
@@ -22,17 +21,13 @@ TBD - created by archiving change 'refactor-pageviews-api'. Update Purpose after
 source: refactor-pageviews-api
 updated: 2026-05-19
 code:
-  - .agents/skills/netlify-functions-api-architecture/references/response-patterns.md
-  - .agents/skills/netlify-functions-api-architecture/SKILL.md
   - src/repositories/analyticsRepository.ts
   - functions/pageviews.ts
-  - .agents/skills/netlify-functions-api-architecture/references/layer-examples.md
   - src/schemas/pageviews.schema.ts
   - src/use-cases/getPageviews.ts
   - utils/apiWrapper.ts
-  - package.json
 tests:
-  - functions/pageviews.test.ts
+  - tests/functions/pageviews.test.ts
   - src/use-cases/getPageviews.test.ts
   - src/schemas/pageviews.schema.test.ts
   - src/repositories/analyticsRepository.test.ts
@@ -40,32 +35,34 @@ tests:
 
 ---
 ### Requirement: Query Parameter Validation
-Handler 層 MUST 在呼叫 Use Case 層之前，使用 Zod schema 驗證選用的查詢參數 `path`。
+Handler 層 MUST 在呼叫 Use Case 層之前，使用 Zod schema (`PageviewsQuerySchema`) 驗證選用的查詢參數 `path`。
+若設定了 `PAGEPATH_REGEX` 環境變數，傳入的 `path` 必須符合該正則表達式，否則拒絕請求。
 
 #### Scenario: Valid optional path
-- **WHEN** 查詢參數包含有效路徑如 `?path=/blog-post` 並進行驗證
-- **THEN** 解析 SHALL 成功並回傳 `{ path: "/blog-post" }`。
+- **WHEN** 查詢參數包含符合 `PAGEPATH_REGEX`（或未設定該正則變數）之有效路徑如 `?path=/posts/my-post`
+- **THEN** 解析 SHALL 成功並回傳 `{ path: "/posts/my-post" }`
 
-#### Scenario: Optional path parsing
-- **WHEN** 查詢參數省略 `path` 或提供任意字串值時
-- **THEN** 驗證 SHALL 成功，並回傳 `{}` 或 `{ path: "<provided string>" }`。
+#### Scenario: Omitted path query
+- **WHEN** 查詢參數省略 `path` 時
+- **THEN** 驗證 SHALL 成功並回傳 `{}`，系統後續僅查詢全站指標
+
+#### Scenario: Path failing PAGEPATH_REGEX pattern
+- **WHEN** `PAGEPATH_REGEX` 設定為特定正則（例如 `^/posts/`）且傳入的 `path` 不符合此規則（例如 `?path=/about`）
+- **THEN** 驗證 SHALL 失敗並拋出 `ValidationError`，錯誤訊息為 `"path does not match required pattern"`，對應 HTTP 400
+
 
 
 <!-- @trace
 source: refactor-pageviews-api
 updated: 2026-05-19
 code:
-  - .agents/skills/netlify-functions-api-architecture/references/response-patterns.md
-  - .agents/skills/netlify-functions-api-architecture/SKILL.md
   - src/repositories/analyticsRepository.ts
   - functions/pageviews.ts
-  - .agents/skills/netlify-functions-api-architecture/references/layer-examples.md
   - src/schemas/pageviews.schema.ts
   - src/use-cases/getPageviews.ts
   - utils/apiWrapper.ts
-  - package.json
 tests:
-  - functions/pageviews.test.ts
+  - tests/functions/pageviews.test.ts
   - src/use-cases/getPageviews.test.ts
   - src/schemas/pageviews.schema.test.ts
   - src/repositories/analyticsRepository.test.ts
@@ -101,17 +98,13 @@ Repository 層 MUST 實作一個輔助工具函式 `parseGA4Report`，根據 `di
 source: refactor-pageviews-api
 updated: 2026-05-19
 code:
-  - .agents/skills/netlify-functions-api-architecture/references/response-patterns.md
-  - .agents/skills/netlify-functions-api-architecture/SKILL.md
   - src/repositories/analyticsRepository.ts
   - functions/pageviews.ts
-  - .agents/skills/netlify-functions-api-architecture/references/layer-examples.md
   - src/schemas/pageviews.schema.ts
   - src/use-cases/getPageviews.ts
   - utils/apiWrapper.ts
-  - package.json
 tests:
-  - functions/pageviews.test.ts
+  - tests/functions/pageviews.test.ts
   - src/use-cases/getPageviews.test.ts
   - src/schemas/pageviews.schema.test.ts
   - src/repositories/analyticsRepository.test.ts
@@ -178,7 +171,7 @@ code:
   - utils/apiWrapper.ts
 tests:
   - utils/response.test.ts
-  - functions/pageviews.test.ts
+  - tests/functions/pageviews.test.ts
   - src/errors/AppError.test.ts
 -->
 
@@ -198,18 +191,34 @@ Use Case 層 MUST 動態建構快取鍵，嘗試將成功的 GA4 回應儲存至
 source: refactor-pageviews-api
 updated: 2026-05-19
 code:
-  - .agents/skills/netlify-functions-api-architecture/references/response-patterns.md
-  - .agents/skills/netlify-functions-api-architecture/SKILL.md
   - src/repositories/analyticsRepository.ts
   - functions/pageviews.ts
-  - .agents/skills/netlify-functions-api-architecture/references/layer-examples.md
-  - src/schemas/pageviews.schema.ts
   - src/use-cases/getPageviews.ts
   - utils/apiWrapper.ts
-  - package.json
 tests:
-  - functions/pageviews.test.ts
+  - tests/functions/pageviews.test.ts
   - src/use-cases/getPageviews.test.ts
-  - src/schemas/pageviews.schema.test.ts
   - src/repositories/analyticsRepository.test.ts
 -->
+
+---
+### Requirement: Pageviews Cache Headers and Vary Policy
+The `/api/pageviews` endpoint SHALL return Netlify Durable CDN Cache headers caching responses for 6 hours (`s-maxage=21600, stale-while-revalidate=21600`), and MUST specify `Netlify-Vary: query=path` so the edge CDN caches distinct responses per queried `path`.
+The client-side `Cache-Control` header SHALL be set to `public, max-age=0, must-revalidate` to ensure browser revalidation while utilizing edge CDN caching.
+
+#### Scenario: Inspecting cache headers on pageviews response
+- **WHEN** a client receives a response from `/api/pageviews`
+- **THEN** `Cache-Control` is `public, max-age=0, must-revalidate`
+- **AND** `Netlify-CDN-Cache-Control` is `public, durable, s-maxage=21600, stale-while-revalidate=21600`
+- **AND** `Netlify-Vary` is `query=path`
+
+<!-- @trace
+source: optimize-api-response-patterns
+updated: 2026-05-21
+code:
+  - functions/pageviews.ts
+  - utils/apiWrapper.ts
+tests:
+  - tests/functions/pageviews.test.ts
+-->
+
