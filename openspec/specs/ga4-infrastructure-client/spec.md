@@ -1,8 +1,7 @@
 # ga4-infrastructure-client Specification
 
 ## Purpose
-
-TBD - created by archiving change 'setup-api-architecture-foundation'. Update Purpose after archive.
+規範 Google Analytics 4 (GA4) 底層用戶端（Infrastructure Client）的建構、生命週期與認證流程。以模組級單例模式（module-level singleton）管理 `BetaAnalyticsDataClient`，優化 Serverless 暖啟動效能，並在執行時透過 `getEnv()` 取得 Service Account 憑證進行強固的錯誤處理與防禦。
 
 ## Requirements
 
@@ -23,62 +22,26 @@ TBD - created by archiving change 'setup-api-architecture-foundation'. Update Pu
 source: setup-api-architecture-foundation
 updated: 2026-05-14
 code:
-  - .spectra.yaml
-  - scratch/test-analytics-client.ts
-  - scratch/test-env-schema.ts
-  - temp_design.md
   - src/infrastructure/analyticsClient.ts
-  - src/errors/AppError.ts
-  - src/schemas/envSchema.ts
-  - temp_proposal.md
-  - temp_spec2.md
-  - package.json
-  - temp_tasks.md
-  - temp_spec1.md
-  - deno.lock
-  - tsconfig.json
-  - scratch/test-errors.ts
 -->
 
 ---
 ### Requirement: 明確的認證錯誤處理 (Explicit Authentication Error Handling)
-系統在建立 GA4 客戶端時，必須明確驗證 Service Account JSON 憑證，若設定無效則立即失敗 (fail fast)。
+系統在建立 GA4 客戶端時，必須明確透過 `getEnv()` 取得 Service Account JSON 憑證，並在 JSON 解析或憑證無效時立即失敗 (fail fast)，拋出描述性錯誤訊息供上層捕獲。
 
-#### Scenario: 憑證缺失
-- **WHEN** `GOOGLE_APPLICATION_CREDENTIALS_JSON` 環境變數缺失時
-- **THEN** 系統必須在嘗試建立客戶端之前，拋出提示缺少環境變數的錯誤
+#### Scenario: 憑證缺失或無效
+- **WHEN** `GOOGLE_APPLICATION_CREDENTIALS_JSON` 環境變數缺失或不是合法的 JSON 格式字串時
+- **THEN** 系統必須在嘗試建立客戶端時，拋出帶有前綴 `Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON:` 的錯誤
 
-##### Example: 憑證缺失錯誤訊息
-- **GIVEN** `GOOGLE_APPLICATION_CREDENTIALS_JSON` 未設定
-- **WHEN** 嘗試呼叫 `getAnalyticsClient()`
-- **THEN** 拋出 `Error: Missing environment variable: GOOGLE_APPLICATION_CREDENTIALS_JSON`
-
-#### Scenario: 無效的 JSON 憑證
-- **WHEN** `GOOGLE_APPLICATION_CREDENTIALS_JSON` 環境變數包含無效的 JSON 格式字串時
-- **THEN** 系統必須拋出提示憑證格式無效的錯誤
-
-##### Example: JSON 解析失敗錯誤訊息
-- **GIVEN** `GOOGLE_APPLICATION_CREDENTIALS_JSON` 設為 `invalid-json-string`
+##### Example: 憑證無效錯誤訊息
+- **GIVEN** `GOOGLE_APPLICATION_CREDENTIALS_JSON` 設為 `invalid-json-string` 或缺失
 - **WHEN** 嘗試呼叫 `getAnalyticsClient()`
 - **THEN** 拋出 `Error: Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON: ...`
+
 
 <!-- @trace
 source: setup-api-architecture-foundation
 updated: 2026-05-14
 code:
-  - .spectra.yaml
-  - scratch/test-analytics-client.ts
-  - scratch/test-env-schema.ts
-  - temp_design.md
   - src/infrastructure/analyticsClient.ts
-  - src/errors/AppError.ts
-  - src/schemas/envSchema.ts
-  - temp_proposal.md
-  - temp_spec2.md
-  - package.json
-  - temp_tasks.md
-  - temp_spec1.md
-  - deno.lock
-  - tsconfig.json
-  - scratch/test-errors.ts
 -->
