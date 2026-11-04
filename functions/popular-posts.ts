@@ -1,6 +1,6 @@
 import type { Config } from '@netlify/functions';
+import { getEnv } from '../src/lib/env.js';
 import { fetchPopularPosts } from '../src/repositories/analyticsRepository.js';
-import { env } from '../src/schemas/envSchema.js';
 import { makeGetPopularPosts } from '../src/use-cases/getPopularPosts.js';
 import { apiWrapper } from '../utils/apiWrapper.js';
 
@@ -15,6 +15,7 @@ export default async (req: Request, context: any) => {
     enableFlag: 'ENABLE_POPULAR',
     extraHeaders: CACHE_HEADERS,
     handlerFn: async () => {
+      const env = getEnv();
       const propertyId = env.PROPERTYID;
       const startDate = env.STARTDATE;
       const endDate = env.ENDDATE;

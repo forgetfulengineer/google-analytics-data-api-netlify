@@ -1,12 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ZodError } from 'zod';
 
-vi.mock('../../src/schemas/envSchema.js', () => ({
-  env: {
-    PROPERTYID: '123456',
-    GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({ project_id: 'test' }),
-    STARTDATE: '2026-01-01',
-    ENDDATE: '2026-01-31',
-  },
+const mockGetEnv = vi.fn(() => ({
+  PROPERTYID: '123456',
+  GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({ project_id: 'test' }),
+  STARTDATE: '2026-01-01',
+  ENDDATE: '2026-01-31',
+}));
+
+vi.mock('../../src/lib/env.js', () => ({
+  getEnv: () => mockGetEnv(),
 }));
 
 import handler from '../../functions/pageviews.js';
@@ -24,6 +27,15 @@ describe('Pageviews Handler', () => {
   // Set required env variables
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetEnv.mockReset();
+    mockGetEnv.mockImplementation(() => ({
+      PROPERTYID: '123456',
+      GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({
+        project_id: 'test',
+      }),
+      STARTDATE: '2026-01-01',
+      ENDDATE: '2026-01-31',
+    }));
     process.env.ENABLE_PAGEVIEW = 'true';
     process.env.PROPERTYID = '123456';
     process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = JSON.stringify({
@@ -91,15 +103,6 @@ describe('Pageviews Handler', () => {
   });
 
   it('should return 400 when validation fails (e.g. invalid query)', async () => {
-    // GIVEN
-    // Let's pass an invalid query parameter structure if any, or trigger schema validation error.
-    // Zod PageviewsQuerySchema parses { path: string | undefined }.
-    // If we mock PageviewsQuerySchema parse, or if we trigger it (though path is optional and accepts any string,
-    // if we pass something that Zod schema would reject if we configure it to reject or if we manually test Validation error).
-    // Let's mock a ValidationError being thrown in handler to test apiWrapper handling of ValidationErrors.
-    // Or let's trigger it by modifying query parameters if we can. Since path: z.string().optional() is very loose,
-    // we can pass multiple query params or test how it handles Zod schema.
-    // Wait, let's write a test where we explicitly throw ValidationError in Use Case to verify 400.
     mockGetPageviewsFn.mockRejectedValue(
       new ValidationError([{ field: 'path', reason: 'Invalid string' }]),
     );
@@ -135,5 +138,37 @@ describe('Pageviews Handler', () => {
       message: 'GA4 unavailable',
       data: null,
     });
+  });
+
+  it('should return 500 JSON without leaking details and log missing env vars when environment variables are missing', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const zodError = new ZodError([
+      {
+        code: 'custom',
+        path: ['PROPERTYID'],
+        message: 'PROPERTYID is required',
+      },
+    ]);
+    mockGetEnv.mockImplementationOnce(() => {
+      throw zodError;
+    });
+
+    const req = new Request('http://localhost/api/pageviews');
+    const res = await handler(req, {} as any);
+
+    expect(res.status).toBe(500);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    const body = await res.json();
+    expect(body).toEqual({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Internal Server Error',
+      data: null,
+    });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '[Config Error] Missing or invalid environment variable(s): PROPERTYID',
+      ),
+    );
+    consoleSpy.mockRestore();
   });
 });
