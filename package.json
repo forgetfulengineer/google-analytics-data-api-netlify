@@ -2,8 +2,23 @@
   "name": "google-analytics-data-api-netlify",
   "version": "1.0.0",
   "description": "This is a simple query API built using the Google Analytics Data API, ideal for static websites.",
-  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "ci": "biome check .",
+    "check": "biome check --write ."
+  },
   "dependencies": {
-    "@google-analytics/data": "^5.1.0"
+    "@google-analytics/data": "^5.2.1",
+    "@netlify/blobs": "^10.7.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.5",
+    "@netlify/functions": "^5.2.2",
+    "@types/node": "^25.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   }
 }
