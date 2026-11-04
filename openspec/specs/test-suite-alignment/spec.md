@@ -1,8 +1,7 @@
 # test-suite-alignment Specification
 
 ## Purpose
-
-TBD - created by archiving change 'test-suite-alignment'. Update Purpose after archive.
+規範測試套件架構、隔離原則與 Mocking 標準，確保測試不污染 deployable `functions/` 目錄、所有 GA4 上游依賴皆透過模組 Mock 隔離以避免消耗額度、透過 `tests/setup.ts` 模擬 Netlify 執行時期環境，並驗證端點與包裝層真實 HTTP 回應契約。
 
 ## Requirements
 
@@ -27,14 +26,6 @@ The test suite MUST NOT place test files under the deployable `functions/` direc
 <!-- @trace
 source: test-suite-alignment
 updated: 2026-06-10
-code:
-  - RTK.md
-  - .agents/rules/windows-terminal-execution-rules.md
-  - .agents/skills/netlify-functions-api-architecture/references/layer-examples.md
-  - .agents/rules/antigravity-rtk-rules.md
-  - .agents/skills/netlify-functions-api-architecture/SKILL.md
-  - AGENTS.md
-  - .agents/skills/netlify-functions-api-architecture/references/response-patterns.md
 tests:
   - src/repositories/analyticsRepository.test.ts
   - src/schemas/pageviews.schema.test.ts
@@ -72,14 +63,6 @@ Repository tests that exercise GA4 request construction or GA4 response mapping 
 <!-- @trace
 source: test-suite-alignment
 updated: 2026-06-10
-code:
-  - RTK.md
-  - .agents/rules/windows-terminal-execution-rules.md
-  - .agents/skills/netlify-functions-api-architecture/references/layer-examples.md
-  - .agents/rules/antigravity-rtk-rules.md
-  - .agents/skills/netlify-functions-api-architecture/SKILL.md
-  - AGENTS.md
-  - .agents/skills/netlify-functions-api-architecture/references/response-patterns.md
 tests:
   - src/repositories/analyticsRepository.test.ts
   - src/schemas/pageviews.schema.test.ts
@@ -108,14 +91,6 @@ The test suite SHALL cover shared `apiWrapper` behavior for CORS denial, unsuppo
 <!-- @trace
 source: test-suite-alignment
 updated: 2026-06-10
-code:
-  - RTK.md
-  - .agents/rules/windows-terminal-execution-rules.md
-  - .agents/skills/netlify-functions-api-architecture/references/layer-examples.md
-  - .agents/rules/antigravity-rtk-rules.md
-  - .agents/skills/netlify-functions-api-architecture/SKILL.md
-  - AGENTS.md
-  - .agents/skills/netlify-functions-api-architecture/references/response-patterns.md
 tests:
   - src/repositories/analyticsRepository.test.ts
   - src/schemas/pageviews.schema.test.ts
@@ -146,14 +121,6 @@ Function handler tests SHALL verify the real HTTP `Response` returned through `a
 <!-- @trace
 source: test-suite-alignment
 updated: 2026-06-10
-code:
-  - RTK.md
-  - .agents/rules/windows-terminal-execution-rules.md
-  - .agents/skills/netlify-functions-api-architecture/references/layer-examples.md
-  - .agents/rules/antigravity-rtk-rules.md
-  - .agents/skills/netlify-functions-api-architecture/SKILL.md
-  - AGENTS.md
-  - .agents/skills/netlify-functions-api-architecture/references/response-patterns.md
 tests:
   - src/repositories/analyticsRepository.test.ts
   - src/schemas/pageviews.schema.test.ts
@@ -176,16 +143,28 @@ Tests SHALL reflect reachable behavior or documented unit-level contracts. A tes
 source: test-suite-alignment
 updated: 2026-06-10
 code:
-  - RTK.md
-  - .agents/rules/windows-terminal-execution-rules.md
-  - .agents/skills/netlify-functions-api-architecture/references/layer-examples.md
-  - .agents/rules/antigravity-rtk-rules.md
-  - .agents/skills/netlify-functions-api-architecture/SKILL.md
-  - AGENTS.md
-  - .agents/skills/netlify-functions-api-architecture/references/response-patterns.md
+  - src/schemas/pageviews.schema.ts
 tests:
-  - src/repositories/analyticsRepository.test.ts
   - src/schemas/pageviews.schema.test.ts
+-->
+
+---
+### Requirement: Netlify Runtime Simulation in Test Setup
+The test suite SHALL provide global runtime simulation for Netlify platform globals in `tests/setup.ts`, automatically provisioning mock `Netlify.env` before each test suite execution to enable consistent local testing without deployment.
+
+#### Scenario: Running tests against Netlify platform APIs
+- **WHEN** tests access `Netlify.env.get()` or execute functions relying on Netlify globals
+- **THEN** `tests/setup.ts` initializes the global mock with standard test defaults
+- **AND** permits tests to override environment variables via `process.env` or mock resets without throwing reference errors
+
+<!-- @trace
+source: test-suite-alignment
+updated: 2026-10-27
+code:
+  - tests/setup.ts
+  - vitest.config.ts
+tests:
+  - tests/functions/function-config.test.ts
+  - tests/functions/pageviews.test.ts
   - tests/functions/popular-posts.test.ts
-  - utils/apiWrapper.test.ts
 -->
