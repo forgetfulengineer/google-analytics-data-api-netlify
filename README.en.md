@@ -4,14 +4,12 @@
 
 # google-analytics-data-api-netlify
 
-This is a simple query API built using the **Google Analytics Data API**, ideal for static websites.
+A serverless REST API built on the [Google Analytics Data API (GA4)](https://developers.google.com/analytics/devguides/reporting/data/v1), tailored for static websites (such as Hexo blogs).
 
-It allows you to retrieve:
+Deployed on [Netlify Functions](https://docs.netlify.com/functions/overview/) (v2) with zero server maintenance, providing lightweight query endpoints out of the box:
 
-- Total site PV (Page Views) and UV (Unique Visitors)
-- Page-level PV (based on specific `path`)
-
-This API is built using [Netlify Functions](https://docs.netlify.com/functions/overview/), with **no additional server required**.
+- **Site & Page Views (`GET /api/pageviews`)**: Query total site PV/UV or page-specific PV by path.
+- **Popular Posts (`GET /api/popular-posts`)**: Filter and return top posts for the last 30 days and all-time rankings.
 
 [繁體中文](./README.md) | **English**
 
@@ -19,101 +17,184 @@ This API is built using [Netlify Functions](https://docs.netlify.com/functions/o
 
 ## Features
 
-- 🚀 **Quick Deployment**: Easily deploy via GitHub + Netlify integration
-- 🔧 **Flexible Queries**: Get full-site PV/UV or specific page PV
-- 📅 **Custom Date Range**: Set start and end date for queries
-- ☁️ **Serverless Ready**: Perfect for static websites without backend
+- 🚀 **Zero-Config Deployment**: Seamless GitHub and Netlify integration with auto-deploy on push.
+- 📊 **Traffic stats API**: Query site/page traffic stats.
+- 📊 **Popular post API**: Query popular post rankings.
+- ⚡ **CDN Edge Caching**: Durable edge caching (`s-maxage=21600`, 6-hour cache) backed by Netlify Blobs fallback to conserve GA4 quota and deliver sub-millisecond responses.
+- 🛡️ **Rate Limiting & Security**: Built-in rate limiting (100 req/60s aggregated by IP and domain) and configurable CORS origin whitelisting.
+- 🎛️ **Feature Flags**: Easily toggle individual endpoints on or off via environment variables.
 
 ---
 
 ## Quick Setup
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-- Enable the `Google Analytics Data API`
-- Create a service account and download the credentials (`JSON`)
+   - Enable **Google Analytics Data API**
+   - Create a Service Account and download the key credentials (`JSON` file)
 2. Go to [Google Analytics](https://analytics.google.com/)
-- Add the service account to the property’s **Access Management**
-- Retrieve the GA **Property ID**
+   - Navigate to **Admin** → **Property Access Management** and add the service account email (grant at least "Viewer" permissions)
+   - Note down the GA4 **Property ID** (numbers only)
 3. Fork this repository to your GitHub account
-4. Visit [Netlify](https://app.netlify.com/), create a new site, and connect your forked GitHub repo
-5. Add the following environment variables under Site Settings → Environment Variables:
+4. Go to [Netlify](https://app.netlify.com/), create a new site, and link your forked repository
+5. Configure environment variables (Project configuration → Environment variables):
 
-    | Name | Description |
-    |------|-------------|
-    | `PROPERTYID` | Your GA Property ID |
-    | `GOOGLE_APPLICATION_CREDENTIALS_JSON` | The content of your GA service account key JSON (keep it secret) |
-    | `STARTDATE` | Start date for data collection, e.g. `2023-12-31` |
-    | `ENDDATE` | End date for data collection, e.g. `today` |
+| Variable | Required | Default | Description |
+| :--- | :---: | :--- | :--- |
+| `PROPERTYID` | **Yes** | None | Google Analytics 4 Property ID (numeric, e.g., `123456789`) |
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | **Yes** | None | Full JSON string of the Google Cloud service account key (keep confidential) |
+| `STARTDATE` | **Yes** | None | Start date for all-time site stats in `YYYY-MM-DD` format (e.g., `2023-12-31`) |
+| `ENDDATE` | **Yes** | None | End date for all-time site stats (e.g., `today` or `YYYY-MM-DD`) |
+| `ALLOWED_ORIGINS` | No | `*` | Comma-separated list of allowed CORS origins (e.g., `https://example.com,https://blog.example.com`). Defaults to allowing all origins; when set, allows specified domains plus local development (`http://localhost:*`) |
+| `PAGEPATH_REGEX` | No | `^/` | Regular expression for filtering site article pages (e.g., `^/(posts|articles)/.+`). Used by both the popular-posts and pageviews endpoints for path validation |
+| `ENABLE_PAGEVIEW` | No | `true` | Enable or disable the pageviews endpoint (`/api/pageviews`). When set to `false`, requests return 404 |
+| `ENABLE_POPULAR` | No | `true` | Enable or disable the popular-posts endpoint (`/api/popular-posts`). When set to `false`, requests return 404 |
 
-> For a full deployment guide, check out:[【API】使用 Google Analytics Data API 架設網站 PV/UV 查詢 API](https://forgetfulengineer.github.io/Backend/API/Building-a-Traffic-API-with-GA-Data-API/)
+> 📖 For an in-depth walkthrough with screenshots, check out: [【API】使用 Google Analytics Data API 架設網站 PV/UV 查詢 API](https://forgetfulengineer.github.io/Backend/API/Building-a-Traffic-API-with-GA-Data-API/)
 
-## API Parameters
+---
 
-| Parameter | Required | Description | Example |
-|-----------|----------|-------------|---------|
-| `path` | No | The path of the specific page you want to query | `/Backend/MySQL/DQL-Execution-Order/` |
+## API Quick Start
 
-## API Usage
+Base URL for all endpoints:
+```text
+https://your-site.netlify.app/api
+```
 
-### Get Total Site PV/UV
+- **Standard Response Envelope**:
+  ```json
+  {
+    "code": "SUCCESS",
+    "message": "Query successful",
+    "data": { ... }
+  }
+  ```
+- **CDN Caching**: Cached on Netlify CDN edge for 6 hours (`s-maxage=21600`). Repeated requests within this window do not consume GA4 quota.
+- **Rate Limit**: Up to 100 requests per 60-second window per IP and domain.
 
-GET `https://{your-site}.netlify.app/.netlify/functions/pageview`
+### 1. Get Pageviews & Active Users (`GET /api/pageviews`)
 
-Response
+- **Endpoint**: `/api/pageviews`
+- **Query Parameters**:
+  - `path` (optional, string): Page path to query (e.g., `/posts/hello-world/`). If omitted, returns site-wide metrics only.
 
-```json json
+#### Query Site-Wide Metrics
+```bash
+curl "https://your-site.netlify.app/api/pageviews"
+```
+
+Response (200 OK):
+```json
 {
-  "pv": string,
-  "uv": string
+  "code": "SUCCESS",
+  "message": "Query successful",
+  "data": {
+    "site": {
+      "pageviews": 12500,
+      "activeUsers": 3200
+    }
+  }
 }
 ```
 
-#### Example
+#### Query Specific Page Metrics (Frontend fetch example)
+```javascript
+fetch('https://your-site.netlify.app/api/pageviews?path=/posts/hello-world/')
+  .then((res) => res.json())
+  .then((res) => {
+    console.log('Site PV:', res.data.site.pageviews);
+    console.log('Page PV:', res.data.page?.pageviews);
+  });
+```
 
-GET `https://ga-api-demo.netlify.app/.netlify/functions/pageview`
-
-Response
-
-```json json
+Response (200 OK):
+```json
 {
-  "pv": "8888",
-  "uv": "1234"
+  "code": "SUCCESS",
+  "message": "Query successful",
+  "data": {
+    "site": {
+      "pageviews": 12500,
+      "activeUsers": 3200
+    },
+    "page": {
+      "path": "/posts/hello-world/",
+      "pageviews": 150
+    }
+  }
 }
 ```
 
-### Get Specific Page PV
+---
 
-GET `https://{your-site}.netlify.app/.netlify/functions/pageview?path={your-path}`
+### 2. Get Popular Posts Ranking (`GET /api/popular-posts`)
 
-Response
+- **Endpoint**: `/api/popular-posts`
+- **Query Parameters**: None (automatically filtered by `PAGEPATH_REGEX`)
 
-```json json
+#### Example Request
+```bash
+curl "https://your-site.netlify.app/api/popular-posts"
+```
+
+Or using frontend fetch:
+```javascript
+fetch('https://your-site.netlify.app/api/popular-posts')
+  .then((res) => res.json())
+  .then((res) => {
+    console.log('Past 30 Days Popular:', res.data.month);
+    console.log('All-Time Popular:', res.data.allTime);
+  });
+```
+
+Response (200 OK):
+```json
 {
-  "pv": string,
-  "uv": string,
-  "path": string,
-  "pageViews": string
+  "code": "SUCCESS",
+  "message": "Query successful",
+  "data": {
+    "month": [
+      { "path": "/posts/docker-guide/", "pageviews": 850 },
+      { "path": "/posts/mysql-index/", "pageviews": 620 }
+    ],
+    "allTime": [
+      { "path": "/posts/git-cheatsheet/", "pageviews": 5400 },
+      { "path": "/posts/docker-guide/", "pageviews": 4300 }
+    ]
+  }
 }
 ```
 
-#### 範例
+---
 
-GET `https://ga-api-demo.netlify.app/.netlify/functions/pageview?path=/Backend/MySQL/DQL-Execution-Order/`
+## FAQ & Troubleshooting
 
-Response
+<details>
+<summary><b>How do I configure CORS restrictions?</b></summary>
 
-```json json
-{
-  "pv": "8888",
-  "uv": "1234",
-  "path": "/Backend/MySQL/DQL-Execution-Order/",
-  "pageViews": "100"
-}
-```
+- By default, if `ALLOWED_ORIGINS` is not set, the API responds with `Access-Control-Allow-Origin: *`, allowing any origin.
+- When `ALLOWED_ORIGINS` is specified (e.g., `https://example.com,https://blog.example.com`), requests from origins outside this list (other than local development at `http://localhost:*`) will receive a 403 Forbidden response.
+</details>
 
-## Additional Notes
+<details>
+<summary><b>What is the cache policy and update frequency?</b></summary>
 
-- Deployed on [Netlify Functions](https://docs.netlify.com/functions/overview/), written in Node.js. Each `.js` file is automatically wrapped by Netlify into a callable API endpoint (Function Endpoint). When a request is received, Netlify automatically invokes the exported `handler` function—no need to set up a server or call the function manually.
-- Uses the [`@google-analytics/data`](https://www.npmjs.com/package/@google-analytics/data) npm package to connect to the [Google Analytics Data API](https://developers.google.com/analytics/devguides/reporting/data/v1), and queries GA data using the [`batchRunReports`](https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/batchRunReports) method along with environment variables for configuration.
-- Implements `async/await` syntax to handle asynchronous operations. The `await` keyword pauses execution until the `Promise` resolves, making the code flow more like synchronous logic.
-- The response includes the HTTP header `{ 'Access-Control-Allow-Origin': '*' }`, which enables Cross-Origin Resource Sharing (CORS). This allows your frontend (e.g., a site hosted on GitHub Pages) to fetch data from this API without being blocked by the browser’s same-origin policy.
+- Responses include the `Netlify-CDN-Cache-Control` header caching at the edge for 6 hours (`s-maxage=21600`). During this window, identical requests are served directly from the CDN without hitting GA4.
+- On each successful GA4 call, data is backed up to Netlify Blobs (`analytics-storage`). If the GA4 API fails or hits quota limits, the system automatically falls back to the Blobs cache to ensure high availability.
+</details>
+
+<details>
+<summary><b>How do I temporarily disable an endpoint?</b></summary>
+
+- If you don't need a specific endpoint (e.g., popular posts), set `ENABLE_POPULAR` to `false` in your Netlify environment variables.
+- When disabled, requests to that endpoint immediately return 404 Not Found.
+</details>
+
+<details>
+<summary><b>Error Code Reference</b></summary>
+
+- **400 Bad Request**: Query parameter validation failed (e.g., invalid `path` format).
+- **403 Forbidden**: CORS origin check failed; the request origin is not in `ALLOWED_ORIGINS`.
+- **404 Not Found**: Endpoint does not exist, or the feature is disabled via its environment variable.
+- **405 Method Not Allowed**: Only `GET` and `OPTIONS` are supported.
+- **503 Service Unavailable**: GA4 API call failed and no fallback cache is available in Netlify Blobs.
+</details>

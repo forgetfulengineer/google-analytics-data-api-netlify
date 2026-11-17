@@ -3,3 +3,22 @@ node_modules/
 
 # Local Netlify folder
 .netlify
+
+# ai related
+.spectra/
+.spectra.yaml
+openspec/.vector-search.db*
+.agent/
+.agents/
+.codex/
+GEMINI.md
+AGENTS.md
+RTK.md
+skills-lock.json
+
+# Development Scratch & Temp
+scratch/
+temp_*.md
+
+# codegraph
+.codegraph/
