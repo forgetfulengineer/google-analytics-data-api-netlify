@@ -7,7 +7,6 @@ node_modules/
 # ai related
 .spectra/
 .spectra.yaml
-openspec/.vector-search.db*
 .agent/
 .agents/
 .codex/

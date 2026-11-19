@@ -1,5 +1,4 @@
 import { ZodError } from 'zod';
-import { getEnv } from '../src/lib/env.js';
 import { checkOrigin } from './cors.js';
 import { errorResponse, successResponse } from './response.js';
 
@@ -15,8 +14,8 @@ export async function apiWrapper(
   { enableFlag, handlerFn, extraHeaders = {} }: ApiWrapperOptions,
 ): Promise<Response> {
   let corsOrigin = '*';
-
   const appendHeaders = (res: Response): Response => {
+    res.headers.set('Vary', 'Origin');
     for (const [key, value] of Object.entries(extraHeaders)) {
       res.headers.set(key, value);
     }
@@ -24,55 +23,49 @@ export async function apiWrapper(
   };
 
   try {
-    const env = getEnv();
-    const allowedOrigins = env.ALLOWED_ORIGINS?.split(',') ?? null;
+    const rawAllowedOrigins = Netlify.env.get('ALLOWED_ORIGINS');
+    const allowedOrigins = rawAllowedOrigins
+      ? rawAllowedOrigins.split(',')
+      : null;
     const origin = req.headers.get('origin') || '';
     const isOriginAllowed = checkOrigin(origin, allowedOrigins);
-    corsOrigin = allowedOrigins ? (isOriginAllowed ? origin : '') : '*';
+    corsOrigin = origin ? (isOriginAllowed ? origin : '') : '*';
 
     if (!isOriginAllowed) {
-      return appendHeaders(
-        errorResponse(
-          403,
-          'CORS_FORBIDDEN',
-          'Forbidden: origin not allowed.',
-          null,
-          corsOrigin,
-        ),
+      return errorResponse(
+        403,
+        'CORS_FORBIDDEN',
+        'Forbidden: origin not allowed.',
+        null,
+        corsOrigin,
       );
     }
 
     if (req.method === 'OPTIONS') {
-      return appendHeaders(
-        new Response(null, {
-          status: 204,
-          headers: {
-            'Access-Control-Allow-Origin': corsOrigin,
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Max-Age': '86400',
-          },
-        }),
-      );
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': corsOrigin,
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Max-Age': '86400',
+        },
+      });
     }
 
     if (req.method !== 'GET') {
-      return appendHeaders(
-        errorResponse(
-          405,
-          'METHOD_NOT_ALLOWED',
-          'Method Not Allowed.',
-          null,
-          corsOrigin,
-        ),
+      return errorResponse(
+        405,
+        'METHOD_NOT_ALLOWED',
+        'Method Not Allowed.',
+        null,
+        corsOrigin,
       );
     }
 
     const enable =
-      (Netlify.env.get(enableFlag) ?? 'true').toLowerCase() === 'true';
+      (Netlify.env.get(enableFlag) || 'true').toLowerCase() === 'true';
     if (!enable) {
-      return appendHeaders(
-        errorResponse(404, 'NOT_FOUND', 'Not Found.', null, corsOrigin),
-      );
+      return errorResponse(404, 'NOT_FOUND', 'Not Found.', null, corsOrigin);
     }
 
     const result = (await handlerFn(req, context)) as Record<
@@ -104,25 +97,21 @@ export async function apiWrapper(
       const errCode = (appErr.code as string) || 'INTERNAL_SERVER_ERROR';
       const errMsg = (appErr.message as string) || 'Internal Server Error';
       const errErrors = appErr.errors || null;
-      return appendHeaders(
-        errorResponse(
-          appErr.statusCode,
-          errCode,
-          errMsg,
-          errErrors,
-          corsOrigin,
-        ),
+      return errorResponse(
+        appErr.statusCode,
+        errCode,
+        errMsg,
+        errErrors,
+        corsOrigin,
       );
     }
 
-    return appendHeaders(
-      errorResponse(
-        500,
-        'INTERNAL_SERVER_ERROR',
-        'Internal Server Error',
-        null,
-        corsOrigin,
-      ),
+    return errorResponse(
+      500,
+      'INTERNAL_SERVER_ERROR',
+      'Internal Server Error',
+      null,
+      corsOrigin,
     );
   }
 }
