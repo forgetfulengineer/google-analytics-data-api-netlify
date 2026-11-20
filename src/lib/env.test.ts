@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ZodError } from 'zod';
 import { getEnv, resetEnv } from './env.js';
 
 describe('src/lib/env', () => {
@@ -82,6 +83,6 @@ describe('src/lib/env', () => {
     vi.stubEnv('STARTDATE', '2024-01-01');
     vi.stubEnv('ENDDATE', '2024-01-31');
 
-    expect(() => getEnv()).toThrow();
+    expect(() => getEnv()).toThrow(ZodError);
   });
 });
