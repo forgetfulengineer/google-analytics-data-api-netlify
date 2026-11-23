@@ -20,6 +20,7 @@ permissions:
 
 jobs:
   analyze:
+    if: github.repository == 'forgetfulengineer/google-analytics-data-api-netlify'
     name: Analyze (javascript-typescript)
     runs-on: ubuntu-latest
     timeout-minutes: 15
