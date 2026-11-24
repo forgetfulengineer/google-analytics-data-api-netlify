@@ -42,8 +42,8 @@
 | :--- | :---: | :--- | :--- |
 | `PROPERTYID` | **是** | 無 | Google Analytics 4 Property ID（純數字，例如 `123456789`） |
 | `GOOGLE_APPLICATION_CREDENTIALS_JSON` | **是** | 無 | Google Cloud 服務帳號金鑰完整 JSON 字串（整段內容複製，請勿公開） |
-| `STARTDATE` | **是** | 無 | 全站統計開始日期，格式 `YYYY-MM-DD`（例如 `2023-12-31`） |
-| `ENDDATE` | **是** | 無 | 全站統計結束日期，例如 `today` 或 `YYYY-MM-DD` |
+| `STARTDATE` | **是** | 無 | 全站統計開始日期，格式 `YYYY-MM-DD` 或 GA4 相對日期（例如 `2023-12-31`、`30daysAgo`） |
+| `ENDDATE` | **是** | 無 | 全站統計結束日期，格式 `YYYY-MM-DD` 或 GA4 相對日期（例如 `2025-12-31`、`today`），例如 `today` 或 `YYYY-MM-DD` |
 | `ALLOWED_ORIGINS` | 否 | `*` | 允許 CORS 跨來源請求的網域清單（以逗號分隔，例如 `https://example.com,https://blog.example.com`）。未設定時允許所有來源；設定後自動允許該清單與本地開發環境（`http://localhost:*`） |
 | `PAGEPATH_REGEX` | 否 | `^/` | 過濾網站文章頁的正規表達式（例如 `^/(posts|articles)/.+`），同時用於熱門文章排行榜與瀏覽量 API 的路徑驗證 |
 | `ENABLE_PAGEVIEW` | 否 | `true` | 是否啟用瀏覽量 API（`/api/pageviews`）。設為 `false` 時呼叫該端點將回傳 404 |

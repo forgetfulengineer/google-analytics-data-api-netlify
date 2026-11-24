@@ -42,8 +42,8 @@ Deployed on [Netlify Functions](https://docs.netlify.com/functions/overview/) (v
 | :--- | :---: | :--- | :--- |
 | `PROPERTYID` | **Yes** | None | Google Analytics 4 Property ID (numeric, e.g., `123456789`) |
 | `GOOGLE_APPLICATION_CREDENTIALS_JSON` | **Yes** | None | Full JSON string of the Google Cloud service account key (keep confidential) |
-| `STARTDATE` | **Yes** | None | Start date for all-time site stats in `YYYY-MM-DD` format (e.g., `2023-12-31`) |
-| `ENDDATE` | **Yes** | None | End date for all-time site stats (e.g., `today` or `YYYY-MM-DD`) |
+| `STARTDATE` | **Yes** | None | Start date for all-time site stats in `YYYY-MM-DD` format or GA4 relative dates (e.g., `2023-12-31`, `30daysAgo`) |
+| `ENDDATE` | **Yes** | None | End date for all-time site stats in `YYYY-MM-DD` format or GA4 relative dates (e.g., `2025-12-31`, `today`) |
 | `ALLOWED_ORIGINS` | No | `*` | Comma-separated list of allowed CORS origins (e.g., `https://example.com,https://blog.example.com`). Defaults to allowing all origins; when set, allows specified domains plus local development (`http://localhost:*`) |
 | `PAGEPATH_REGEX` | No | `^/` | Regular expression for filtering site article pages (e.g., `^/(posts|articles)/.+`). Used by both the popular-posts and pageviews endpoints for path validation |
 | `ENABLE_PAGEVIEW` | No | `true` | Enable or disable the pageviews endpoint (`/api/pageviews`). When set to `false`, requests return 404 |
