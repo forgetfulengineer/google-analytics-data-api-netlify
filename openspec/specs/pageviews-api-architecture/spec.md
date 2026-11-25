@@ -35,37 +35,34 @@ tests:
 
 ---
 ### Requirement: Query Parameter Validation
-Handler 層 MUST 在呼叫 Use Case 層之前，使用 Zod schema (`PageviewsQuerySchema`) 驗證選用的查詢參數 `path`。
-若設定了 `PAGEPATH_REGEX` 環境變數，傳入的 `path` 必須符合該正則表達式，否則拒絕請求。
+The Handler layer MUST validate the optional query parameter `path` using the Zod schema (`PageviewsQuerySchema`) before delegating to the Use Case layer.
+The input `path` MUST match the regular expression defined by the `PAGEPATH_REGEX` environment variable; if the environment variable is unset or empty, it MUST fall back to `^/` by default (requiring the path to start with a slash), otherwise the request MUST be rejected.
 
 #### Scenario: Valid optional path
-- **WHEN** 查詢參數包含符合 `PAGEPATH_REGEX`（或未設定該正則變數）之有效路徑如 `?path=/posts/my-post`
-- **THEN** 解析 SHALL 成功並回傳 `{ path: "/posts/my-post" }`
+- **WHEN** the query parameter includes a path that matches `PAGEPATH_REGEX` (or starts with `/` when `PAGEPATH_REGEX` is unset), such as `?path=/posts/my-post`
+- **THEN** parsing SHALL succeed and return `{ path: "/posts/my-post" }`
 
 #### Scenario: Omitted path query
-- **WHEN** 查詢參數省略 `path` 時
-- **THEN** 驗證 SHALL 成功並回傳 `{}`，系統後續僅查詢全站指標
+- **WHEN** the query parameter `path` is omitted
+- **THEN** validation SHALL succeed and return `{}` so that the system proceeds to query site metrics only
+
+#### Scenario: Path failing default pattern when PAGEPATH_REGEX is unset
+- **WHEN** `PAGEPATH_REGEX` is unset and the query parameter `path` does not start with `/` (such as `?path=about` or `?path=123`)
+- **THEN** validation SHALL fail and throw a `ValidationError` with error message `"path does not match required pattern"`, corresponding to HTTP 400
 
 #### Scenario: Path failing PAGEPATH_REGEX pattern
-- **WHEN** `PAGEPATH_REGEX` 設定為特定正則（例如 `^/posts/`）且傳入的 `path` 不符合此規則（例如 `?path=/about`）
-- **THEN** 驗證 SHALL 失敗並拋出 `ValidationError`，錯誤訊息為 `"path does not match required pattern"`，對應 HTTP 400
-
+- **WHEN** `PAGEPATH_REGEX` is configured to a specific regex (such as `^/posts/`) and the incoming `path` does not match the rule (such as `?path=/about`)
+- **THEN** validation SHALL fail and throw a `ValidationError` with error message `"path does not match required pattern"`, corresponding to HTTP 400
 
 
 <!-- @trace
-source: refactor-pageviews-api
-updated: 2026-05-19
+source: align-pageviews-path-regex-default
+updated: 2026-11-25
 code:
-  - src/repositories/analyticsRepository.ts
-  - functions/pageviews.ts
   - src/schemas/pageviews.schema.ts
-  - src/use-cases/getPageviews.ts
-  - utils/apiWrapper.ts
 tests:
-  - tests/functions/pageviews.test.ts
-  - src/use-cases/getPageviews.test.ts
   - src/schemas/pageviews.schema.test.ts
-  - src/repositories/analyticsRepository.test.ts
+  - tests/functions/pageviews.test.ts
 -->
 
 ---
@@ -221,4 +218,3 @@ code:
 tests:
   - tests/functions/pageviews.test.ts
 -->
-

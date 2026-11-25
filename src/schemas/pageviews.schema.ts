@@ -8,8 +8,7 @@ export const PageviewsQuerySchema = z.object({
     .refine(
       (val) => {
         if (!val) return true; // undefined or empty skip
-        const pagePathRegex = getEnv().PAGEPATH_REGEX;
-        if (!pagePathRegex) return true; // no regex env, skip check
+        const pagePathRegex = getEnv().PAGEPATH_REGEX || '^/';
         const regex = new RegExp(pagePathRegex);
         return regex.test(val);
       },

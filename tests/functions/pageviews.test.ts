@@ -45,6 +45,7 @@ describe('Pageviews Handler', () => {
     process.env.ENDDATE = '2026-01-31';
   });
 
+  // spectra-scenario: pageviews-api-architecture / Omitted path query
   it('should return 200 with site metrics when path is omitted', async () => {
     // GIVEN
     const mockData = {
@@ -73,6 +74,7 @@ describe('Pageviews Handler', () => {
     });
   });
 
+  // spectra-scenario: pageviews-api-architecture / Valid optional path
   it('should return 200 with both site and page metrics when path is provided', async () => {
     // GIVEN
     const mockData = {
@@ -102,11 +104,32 @@ describe('Pageviews Handler', () => {
     });
   });
 
+  // spectra-scenario: pageviews-api-architecture / Path failing default pattern when PAGEPATH_REGEX is unset
   it('should return 400 when validation fails (e.g. invalid query)', async () => {
+    const req = new Request('http://localhost/api/pageviews?path=123');
+
+    // WHEN
+    const res = await handler(req, {} as any);
+
+    // THEN
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toEqual({
+      code: 'VALIDATION_ERROR',
+      message: 'Validation failed',
+      data: null,
+      errors: [
+        { field: 'path', reason: 'path does not match required pattern' },
+      ],
+    });
+    expect(mockGetPageviewsFn).not.toHaveBeenCalled();
+  });
+
+  it('should return 400 when Use Case throws ValidationError', async () => {
     mockGetPageviewsFn.mockRejectedValue(
       new ValidationError([{ field: 'path', reason: 'Invalid string' }]),
     );
-    const req = new Request('http://localhost/api/pageviews?path=123');
+    const req = new Request('http://localhost/api/pageviews?path=/valid');
 
     // WHEN
     const res = await handler(req, {} as any);
