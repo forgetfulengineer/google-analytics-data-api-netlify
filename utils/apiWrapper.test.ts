@@ -151,6 +151,62 @@ describe('apiWrapper', () => {
     expect(handlerFn).toHaveBeenCalled();
   });
 
+  // spectra-scenario: api-architecture-foundation / Allowing wildcard origin configuration
+  it('allows requests when ALLOWED_ORIGINS is set to wildcard "*"', async () => {
+    vi.stubEnv('ALLOWED_ORIGINS', '*');
+    const handlerFn = vi.fn().mockResolvedValue({ ok: true });
+    const req = new Request('https://api.example.com/api/pageviews', {
+      headers: {
+        Origin: 'https://myblog.com',
+      },
+    });
+
+    const res = await apiWrapper(
+      req,
+      {},
+      {
+        enableFlag: 'ENABLE_PAGEVIEW',
+        handlerFn,
+      },
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(
+      'https://myblog.com',
+    );
+    expect(handlerFn).toHaveBeenCalled();
+  });
+
+  // spectra-scenario: api-architecture-foundation / Sanitizing origin whitelist entries
+  // spectra-scenario: api-architecture-foundation / Sanitizing origin whitelist entries / Whitelist with extra spaces and empty entries
+  it('sanitizes ALLOWED_ORIGINS with whitespace and empty entries', async () => {
+    vi.stubEnv(
+      'ALLOWED_ORIGINS',
+      'https://example.com, https://blog.example.com, ',
+    );
+    const handlerFn = vi.fn().mockResolvedValue({ ok: true });
+    const req = new Request('https://api.example.com/api/pageviews', {
+      headers: {
+        Origin: 'https://blog.example.com',
+      },
+    });
+
+    const res = await apiWrapper(
+      req,
+      {},
+      {
+        enableFlag: 'ENABLE_PAGEVIEW',
+        handlerFn,
+      },
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(
+      'https://blog.example.com',
+    );
+    expect(handlerFn).toHaveBeenCalled();
+  });
+
   it('returns a unified 404 error when the feature flag is disabled without executing handler logic', async () => {
     vi.stubEnv('ENABLE_PAGEVIEW', 'false');
     const handlerFn = vi.fn();

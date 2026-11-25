@@ -44,7 +44,7 @@
 | `GOOGLE_APPLICATION_CREDENTIALS_JSON` | **是** | 無 | Google Cloud 服務帳號金鑰完整 JSON 字串（整段內容複製，請勿公開） |
 | `STARTDATE` | **是** | 無 | 全站統計開始日期，格式 `YYYY-MM-DD` 或 GA4 相對日期（例如 `2023-12-31`、`30daysAgo`） |
 | `ENDDATE` | **是** | 無 | 全站統計結束日期，格式 `YYYY-MM-DD` 或 GA4 相對日期（例如 `2025-12-31`、`today`），例如 `today` 或 `YYYY-MM-DD` |
-| `ALLOWED_ORIGINS` | 否 | `*` | 允許 CORS 跨來源請求的網域清單（以逗號分隔，例如 `https://example.com,https://blog.example.com`）。未設定時允許所有來源；設定後自動允許該清單與本地開發環境（`http://localhost:*`） |
+| `ALLOWED_ORIGINS` | 否 | `*` | 允許 CORS 跨來源請求的網域清單（以逗號分隔，例如 `https://example.com,https://blog.example.com`）。未設定時允許所有來源；設定後自動允許該清單與本地開發環境（`http(s)://localhost:*`） |
 | `PAGEPATH_REGEX` | 否 | `^/` | 過濾網站文章頁的正規表達式（例如 `^/(posts|articles)/.+`），同時用於熱門文章排行榜與瀏覽量 API 的路徑驗證 |
 | `ENABLE_PAGEVIEW` | 否 | `true` | 是否啟用瀏覽量 API（`/api/pageviews`）。設為 `false` 時呼叫該端點將回傳 404 |
 | `ENABLE_POPULAR` | 否 | `true` | 是否啟用熱門文章 API（`/api/popular-posts`）。設為 `false` 時呼叫該端點將回傳 404 |
@@ -172,7 +172,7 @@ fetch('https://your-site.netlify.app/api/popular-posts')
 <summary><b>如何設定 CORS 跨來源限制？</b></summary>
 
 - 預設未設定 `ALLOWED_ORIGINS` 時，API 回應標頭為 `Access-Control-Allow-Origin: *`，允許任意來源跨域呼叫。
-- 若設定 `ALLOWED_ORIGINS`（如 `https://example.com,https://blog.example.com`），僅允許名單中的網域以及本地開發環境（`http://localhost:*`）。未在名單中的來源請求將收到 403 Forbidden 回應。
+- 若設定 `ALLOWED_ORIGINS`（如 `https://example.com,https://blog.example.com`），僅允許名單中的網域以及本地開發環境（`http(s)://localhost:*`）。未在名單中的來源請求將收到 403 Forbidden 回應。
 </details>
 
 <details>

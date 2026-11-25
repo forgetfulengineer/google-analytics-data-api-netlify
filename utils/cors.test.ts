@@ -14,6 +14,20 @@ describe('checkOrigin', () => {
     expect(checkOrigin('http://localhost:3000', ['https://example.com'])).toBe(
       true,
     );
+    expect(checkOrigin('https://localhost:8443', ['https://example.com'])).toBe(
+      true,
+    );
+    expect(checkOrigin('https://localhost', ['https://example.com'])).toBe(
+      true,
+    );
+  });
+
+  // spectra-scenario: api-architecture-foundation / Allowing wildcard origin configuration
+  it('allows any origin when allowedOrigins contains wildcard', () => {
+    expect(checkOrigin('https://myblog.com', ['*'])).toBe(true);
+    expect(
+      checkOrigin('https://another-domain.org', ['https://example.com', '*']),
+    ).toBe(true);
   });
 
   it('allows exact origin matches', () => {
