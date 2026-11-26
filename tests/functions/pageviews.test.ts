@@ -1,19 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ZodError } from 'zod';
-
-const mockGetEnv = vi.fn(() => ({
-  PROPERTYID: '123456',
-  GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({ project_id: 'test' }),
-  STARTDATE: '2026-01-01',
-  ENDDATE: '2026-01-31',
-}));
-
-vi.mock('../../src/lib/env.js', () => ({
-  getEnv: () => mockGetEnv(),
-}));
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import handler from '../../functions/pageviews.js';
 import { UpstreamError, ValidationError } from '../../src/errors/AppError.js';
+import { resetEnv } from '../../src/lib/env.js';
 
 // Mock the getPageviews Use Case module
 const mockGetPageviewsFn = vi.fn();
@@ -24,25 +13,14 @@ vi.mock('../../src/use-cases/getPageviews.js', () => {
 });
 
 describe('Pageviews Handler', () => {
-  // Set required env variables
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetEnv.mockReset();
-    mockGetEnv.mockImplementation(() => ({
-      PROPERTYID: '123456',
-      GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({
-        project_id: 'test',
-      }),
-      STARTDATE: '2026-01-01',
-      ENDDATE: '2026-01-31',
-    }));
-    process.env.ENABLE_PAGEVIEW = 'true';
-    process.env.PROPERTYID = '123456';
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = JSON.stringify({
-      project_id: 'test',
-    });
-    process.env.STARTDATE = '2026-01-01';
-    process.env.ENDDATE = '2026-01-31';
+    resetEnv();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetEnv();
   });
 
   // spectra-scenario: pageviews-api-architecture / Omitted path query
@@ -165,16 +143,7 @@ describe('Pageviews Handler', () => {
 
   it('should return 500 JSON without leaking details and log missing env vars when environment variables are missing', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const zodError = new ZodError([
-      {
-        code: 'custom',
-        path: ['PROPERTYID'],
-        message: 'PROPERTYID is required',
-      },
-    ]);
-    mockGetEnv.mockImplementationOnce(() => {
-      throw zodError;
-    });
+    vi.stubEnv('PROPERTYID', '');
 
     const req = new Request('http://localhost/api/pageviews');
     const res = await handler(req, {} as any);
