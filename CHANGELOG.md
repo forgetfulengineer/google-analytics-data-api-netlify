@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.1](https://github.com/forgetfulengineer/google-analytics-data-api-netlify/compare/v2.0.0...v2.0.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* **cors:** 支援萬用字元放行與網域空白清洗，並對齊本地端規格與測試 ([f270378](https://github.com/forgetfulengineer/google-analytics-data-api-netlify/commit/f270378cb0ed42ca608a0fd55ab49395b3fa2d7d)), closes [#8](https://github.com/forgetfulengineer/google-analytics-data-api-netlify/issues/8)
+* resolve review comments for PR [#8](https://github.com/forgetfulengineer/google-analytics-data-api-netlify/issues/8) ([2773c28](https://github.com/forgetfulengineer/google-analytics-data-api-netlify/commit/2773c28cca8c6526f2d502df98a0dd2db490a8ef))
+* **schema:** 當 PAGEPATH_REGEX 未設定時 fallback 至預設正規式 '^/' ([065d524](https://github.com/forgetfulengineer/google-analytics-data-api-netlify/commit/065d524f92731c6966a799b3231c520a1d15ed16)), closes [#8](https://github.com/forgetfulengineer/google-analytics-data-api-netlify/issues/8)
+
 ## [2.0.0](https://github.com/forgetfulengineer/google-analytics-data-api-netlify/compare/v1.0.0...v2.0.0) (2026-11-17)
 
 
