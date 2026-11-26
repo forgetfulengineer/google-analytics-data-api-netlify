@@ -1,6 +1,6 @@
 {
   "name": "google-analytics-data-api-netlify",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "This is a simple query API built using the Google Analytics Data API, ideal for static websites.",
   "type": "module",
   "scripts": {
