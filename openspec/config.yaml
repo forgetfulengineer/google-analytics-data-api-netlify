@@ -77,7 +77,7 @@ rules:
     - 必須遵循錯誤處理與 HTTP 狀態碼對應（遵循 AppError 體系：400、404、503、500），確保全生命週期皆回傳統一 JSON 且杜絕 HTML 錯誤頁
     - 若有新 endpoint 或資料結構異動，必須列出完整的成功與錯誤 response JSON schema（含欄位名稱、型別與 meta 說明）
     - 若有 CDN 快取策略，必須列出 Cache-Control、Netlify-CDN-Cache-Control、Netlify-Vary 的具體值
-    - 必須遵循 CORS 策略（包含 ALLOWED_ORIGINS 白名單比對、本機開發 http://localhost:* 放行與 OPTIONS 204 preflight 快取）
+    - 必須遵循 CORS 策略（包含 ALLOWED_ORIGINS 白名單比對、本機開發 http(s)://localhost:* 放行與 OPTIONS 204 preflight 快取）
 
   specs:
     - 必須採用 BDD 規範（Requirement -> Scenario -> Example），並以 GIVEN / WHEN / THEN / AND 格式撰寫明確可驗證的行為

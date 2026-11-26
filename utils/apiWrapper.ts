@@ -25,7 +25,10 @@ export async function apiWrapper(
   try {
     const rawAllowedOrigins = Netlify.env.get('ALLOWED_ORIGINS');
     const allowedOrigins = rawAllowedOrigins
-      ? rawAllowedOrigins.split(',')
+      ? rawAllowedOrigins
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean)
       : null;
     const origin = req.headers.get('origin') || '';
     const isOriginAllowed = checkOrigin(origin, allowedOrigins);

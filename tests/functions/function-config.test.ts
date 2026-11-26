@@ -1,18 +1,22 @@
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('../../src/lib/env.js', () => ({
-  getEnv: () => ({
-    PROPERTYID: '123456',
-    GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({ project_id: 'test' }),
-    STARTDATE: '2026-01-01',
-    ENDDATE: '2026-01-31',
-  }),
-}));
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { config as pageviewsConfig } from '../../functions/pageviews.js';
 import { config as popularPostsConfig } from '../../functions/popular-posts.js';
 
 describe('Function V2 config', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  // spectra-scenario: test-suite-alignment / Running tests against Netlify platform APIs
+  // spectra-scenario: test-suite-alignment / Running tests against Netlify platform APIs / Default mock environment variables
+  it('provisions isolated default Netlify.env values and supports vi.stubEnv overrides', () => {
+    expect(Netlify.env.get('PROPERTYID')).toBe('123456');
+
+    vi.stubEnv('PROPERTYID', 'custom-id');
+    expect(Netlify.env.get('PROPERTYID')).toBe('custom-id');
+  });
+
   it('routes pageviews through its API path with method and rate restrictions', () => {
     expect(pageviewsConfig).toEqual({
       path: '/api/pageviews',

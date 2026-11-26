@@ -1,19 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ZodError } from 'zod';
-
-const mockGetEnv = vi.fn(() => ({
-  PROPERTYID: '123456',
-  GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({ project_id: 'test' }),
-  STARTDATE: '2026-01-01',
-  ENDDATE: '2026-01-31',
-}));
-
-vi.mock('../../src/lib/env.js', () => ({
-  getEnv: () => mockGetEnv(),
-}));
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import handler from '../../functions/pageviews.js';
 import { UpstreamError, ValidationError } from '../../src/errors/AppError.js';
+import { resetEnv } from '../../src/lib/env.js';
 
 // Mock the getPageviews Use Case module
 const mockGetPageviewsFn = vi.fn();
@@ -24,27 +13,17 @@ vi.mock('../../src/use-cases/getPageviews.js', () => {
 });
 
 describe('Pageviews Handler', () => {
-  // Set required env variables
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetEnv.mockReset();
-    mockGetEnv.mockImplementation(() => ({
-      PROPERTYID: '123456',
-      GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({
-        project_id: 'test',
-      }),
-      STARTDATE: '2026-01-01',
-      ENDDATE: '2026-01-31',
-    }));
-    process.env.ENABLE_PAGEVIEW = 'true';
-    process.env.PROPERTYID = '123456';
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = JSON.stringify({
-      project_id: 'test',
-    });
-    process.env.STARTDATE = '2026-01-01';
-    process.env.ENDDATE = '2026-01-31';
+    resetEnv();
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetEnv();
+  });
+
+  // spectra-scenario: pageviews-api-architecture / Omitted path query
   it('should return 200 with site metrics when path is omitted', async () => {
     // GIVEN
     const mockData = {
@@ -73,6 +52,7 @@ describe('Pageviews Handler', () => {
     });
   });
 
+  // spectra-scenario: pageviews-api-architecture / Valid optional path
   it('should return 200 with both site and page metrics when path is provided', async () => {
     // GIVEN
     const mockData = {
@@ -102,11 +82,32 @@ describe('Pageviews Handler', () => {
     });
   });
 
+  // spectra-scenario: pageviews-api-architecture / Path failing default pattern when PAGEPATH_REGEX is unset
   it('should return 400 when validation fails (e.g. invalid query)', async () => {
+    const req = new Request('http://localhost/api/pageviews?path=123');
+
+    // WHEN
+    const res = await handler(req, {} as any);
+
+    // THEN
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toEqual({
+      code: 'VALIDATION_ERROR',
+      message: 'Validation failed',
+      data: null,
+      errors: [
+        { field: 'path', reason: 'path does not match required pattern' },
+      ],
+    });
+    expect(mockGetPageviewsFn).not.toHaveBeenCalled();
+  });
+
+  it('should return 400 when Use Case throws ValidationError', async () => {
     mockGetPageviewsFn.mockRejectedValue(
       new ValidationError([{ field: 'path', reason: 'Invalid string' }]),
     );
-    const req = new Request('http://localhost/api/pageviews?path=123');
+    const req = new Request('http://localhost/api/pageviews?path=/valid');
 
     // WHEN
     const res = await handler(req, {} as any);
@@ -142,16 +143,7 @@ describe('Pageviews Handler', () => {
 
   it('should return 500 JSON without leaking details and log missing env vars when environment variables are missing', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const zodError = new ZodError([
-      {
-        code: 'custom',
-        path: ['PROPERTYID'],
-        message: 'PROPERTYID is required',
-      },
-    ]);
-    mockGetEnv.mockImplementationOnce(() => {
-      throw zodError;
-    });
+    vi.stubEnv('PROPERTYID', '');
 
     const req = new Request('http://localhost/api/pageviews');
     const res = await handler(req, {} as any);

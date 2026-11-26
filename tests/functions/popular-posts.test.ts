@@ -1,24 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockEnv, mockGetPopularPosts } = vi.hoisted(() => ({
-  mockEnv: {
-    PROPERTYID: '123456',
-    GOOGLE_APPLICATION_CREDENTIALS_JSON: JSON.stringify({ project_id: 'test' }),
-    STARTDATE: '2026-01-01',
-    ENDDATE: '2026-01-31',
-    PAGEPATH_REGEX: '^/',
-  } as {
-    PROPERTYID: string;
-    GOOGLE_APPLICATION_CREDENTIALS_JSON: string;
-    STARTDATE: string;
-    ENDDATE: string;
-    PAGEPATH_REGEX?: string;
-  },
+const { mockGetPopularPosts } = vi.hoisted(() => ({
   mockGetPopularPosts: vi.fn(),
-}));
-
-vi.mock('../../src/lib/env.js', () => ({
-  getEnv: () => mockEnv,
 }));
 
 vi.mock('../../src/use-cases/getPopularPosts.js', () => ({
@@ -26,18 +9,17 @@ vi.mock('../../src/use-cases/getPopularPosts.js', () => ({
 }));
 
 import popularPostsHandler from '../../functions/popular-posts.js';
+import { resetEnv } from '../../src/lib/env.js';
 
 describe('popular-posts handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetEnv();
+  });
+
+  afterEach(() => {
     vi.unstubAllEnvs();
-    mockEnv.PROPERTYID = '123456';
-    mockEnv.GOOGLE_APPLICATION_CREDENTIALS_JSON = JSON.stringify({
-      project_id: 'test',
-    });
-    mockEnv.STARTDATE = '2026-01-01';
-    mockEnv.ENDDATE = '2026-01-31';
-    mockEnv.PAGEPATH_REGEX = '^/';
+    resetEnv();
   });
 
   it('returns a standard success response envelope with popular posts data', async () => {
@@ -83,7 +65,7 @@ describe('popular-posts handler', () => {
   });
 
   it('uses the default PAGEPATH_REGEX when env does not provide one', async () => {
-    delete mockEnv.PAGEPATH_REGEX;
+    vi.stubEnv('PAGEPATH_REGEX', '');
     mockGetPopularPosts.mockResolvedValue({
       month: [],
       allTime: [],

@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   release-please:
+    if: github.repository == 'forgetfulengineer/google-analytics-data-api-netlify'
     runs-on: ubuntu-latest
 
     steps:
